@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>The Third Place — Brooklyn</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.21.0/mapbox-gl.css" rel="stylesheet">
+  <link href="./style.css" rel="stylesheet">
+  <link href="./docs/narrative.css" rel="stylesheet">
+</head>
+<body>
+  <script>
+    // Synchronously decide whether the narrative is going to play before the
+    // browser paints any body content. Adding `narrative-active` here means
+    // the legend/header CSS rules (opacity: 0) apply on the first paint,
+    // preventing the chrome from flashing in and then fading away.
+    (function () {
+      try {
+        if (localStorage.getItem('narrative_seen') !== 'true') {
+          document.body.classList.add('narrative-active');
+        }
+      } catch (e) { /* private mode etc — fall through to default chrome */ }
+    })();
+  </script>
+
+  <div id="map"></div>
+
+  <header class="app-header">
+    <div class="app-title">The Third Place</div>
+    <div class="app-subtitle">Brooklyn's Community Soul</div>
+    <button id="replay-narrative" onclick="replayNarrative()">Replay Intro</button>
+  </header>
+
+  <div id="loading"></div>
+
+  <div class="legend">
+    <div class="legend-title">Place Type</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#E07A5F"></span>Café</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#3D405B"></span>Bar &amp; Pub</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#81B29A"></span>Library</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#F2CC8F"></span>Community Space</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#A8DADC"></span>Creative Club</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#888888"></span>Other</div>
+
+    <div class="legend-title legend-title-second">Size</div>
+    <div class="legend-size">
+      <span class="legend-size-dot" style="width:5px;height:5px"></span>
+      <span class="legend-size-dot" style="width:7px;height:7px"></span>
+      <span class="legend-size-dot" style="width:10px;height:10px"></span>
+    </div>
+    <div class="legend-caption">Fewer ←  reviews  → More</div>
+  </div>
+
+  <div id="narrative-overlay">
+    <div id="narrative-scroll-container">
+      <div class="narrative-step" data-step="1">
+        <div class="narrative-text is-active">
+          <p>There are many maps of New York City.</p>
+        </div>
+      </div>
+      <div class="narrative-step" data-step="2">
+        <div class="narrative-text">
+          <p>They show streets, subways, buildings &mdash; where we live.</p>
+        </div>
+      </div>
+      <div class="narrative-step" data-step="3">
+        <div class="narrative-text">
+          <p>But they don't show how we live.</p>
+          <p class="narrative-sub">In an increasingly digital world, the experiences that define city life risk going unseen &mdash; unmapped, forgotten.</p>
+          <p class="narrative-sub">Yet the boundary between physical and digital is dissolving. And that creates something new: the possibility to rediscover the city we already live in.</p>
+        </div>
+      </div>
+      <div class="narrative-step" data-step="4">
+        <div class="narrative-text">
+          <blockquote>'The city fosters art and is art; the city creates the theater and is the theater.'</blockquote>
+          <cite>&mdash; Lewis Mumford, 1937</cite>
+          <p>The places and experiences that define our lives.</p>
+        </div>
+      </div>
+      <div class="narrative-step" data-step="5">
+        <div class="narrative-text">
+          <p class="narrative-count">14,905 gathering spaces across New York City.</p>
+          <p class="narrative-sub">Mapped by the community. Described by the people who make the city what it is.</p>
+          <button id="narrative-cta">Explore the Map</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="sidebar" id="sidebar" aria-hidden="true" aria-label="Place details">
+    <button class="sidebar-close" id="sidebar-close" aria-label="Close">×</button>
+    <div class="sidebar-inner" id="sidebar-content"></div>
+  </aside>
+
+  <div id="error"></div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.21.0/mapbox-gl.js"></script>
+  <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
+  <script src="https://unpkg.com/scrollama@3.2.0/build/scrollama.min.js"></script>
+  <script src="./docs/narrative.js"></script>
+  <script src="./main.js"></script>
+
+</body>
+</html>

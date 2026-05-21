@@ -1,0 +1,420 @@
+:root {
+  --bg: #faf9f7;
+  --text: #2b2b2b;
+  --text-muted: #6b6b6b;
+  --accent: #E07A5F;
+  --border: #e7e2d6;
+  --review-bg: #faf7f1;
+  --editorial-bg: #f5f1ea;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --transition: 250ms ease;
+  --shadow-sidebar: -4px 0 24px rgba(0, 0, 0, 0.10);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: var(--font-body);
+  color: var(--text);
+  background: var(--bg);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+}
+
+.narrative-done .app-header,
+.narrative-done .legend {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Header */
+.app-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 14px 22px;
+  background: rgba(255, 255, 255, 0.92);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.app-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+.app-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 440px;
+  max-width: 100%;
+  background: #fff;
+  box-shadow: var(--shadow-sidebar);
+  transform: translateX(100%);
+  transition: transform var(--transition);
+  overflow-y: auto;
+  z-index: 10;
+}
+.sidebar.is-open {
+  transform: translateX(0);
+}
+.sidebar-inner {
+  padding: 24px 28px 48px;
+}
+.sidebar-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body);
+  transition: background var(--transition), color var(--transition);
+}
+.sidebar-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text);
+}
+
+/* Place card */
+.place-type-badge {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  margin-bottom: 16px;
+}
+.place-name {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1.05;
+  font-weight: 700;
+  margin: 0 0 18px;
+  letter-spacing: -0.015em;
+}
+.place-soul {
+  font-size: 17px;
+  line-height: 1.55;
+  margin: 0 0 22px;
+  color: #353535;
+}
+.place-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+.rating {
+  position: relative;
+  display: inline-block;
+  font-size: 17px;
+  letter-spacing: 1px;
+  line-height: 1;
+  vertical-align: middle;
+}
+.rating-empty {
+  color: #e0d8c8;
+}
+.rating-filled {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--accent);
+}
+.rating-num {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.review-count {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.place-editorial {
+  font-size: 14px;
+  color: #5a5a5a;
+  font-style: italic;
+  margin: 0 0 22px;
+  padding: 12px 14px;
+  background: var(--editorial-bg);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent);
+}
+
+/* Atmosphere pills */
+.atmosphere {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+.pill {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--editorial-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* Section headings */
+.section-title {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 24px 0 12px;
+}
+
+/* Reviews */
+.reviews {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.review {
+  position: relative;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 12px 14px;
+  background: var(--review-bg);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.review.is-truncated::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background: linear-gradient(to bottom, transparent, var(--review-bg));
+  pointer-events: none;
+}
+.review-author {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  font-style: italic;
+}
+
+/* Kindred Places */
+.kindred {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr;
+}
+.kindred-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: background var(--transition), border-color var(--transition);
+}
+.kindred-card:hover {
+  background: var(--editorial-bg);
+  border-color: var(--accent);
+}
+.kindred-name {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.kindred-type {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Error overlay */
+#error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 16px 20px;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  max-width: 460px;
+  font-size: 14px;
+  line-height: 1.5;
+  display: none;
+  z-index: 20;
+}
+
+/* Loading overlay */
+#loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 12px 20px;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  font-size: 14px;
+  display: none;
+  z-index: 20;
+}
+
+#replay-narrative {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(43,43,43,0.3);
+  color: var(--text-muted);
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+#replay-narrative:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Empty state in sidebar */
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+/* Legend */
+.legend {
+  position: fixed;
+  bottom: 40px;
+  left: 16px;
+  z-index: 5;
+  background: rgba(255, 255, 255, 0.92);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+.legend-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.legend-title-second {
+  margin-top: 12px;
+}
+.legend-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px 4px;
+}
+.legend-size-dot {
+  display: inline-block;
+  background: #888;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.legend-caption {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* Reposition Mapbox controls */
+.mapboxgl-ctrl-bottom-right {
+  bottom: 20px;
+  right: 20px;
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .app-header {
+    padding: 10px 16px;
+  }
+  .app-title { font-size: 18px; }
+  .app-subtitle { font-size: 12px; }
+  .sidebar { width: 100%; }
+  .sidebar-inner { padding: 20px 20px 32px; }
+  .place-name { font-size: 26px; }
+  .place-soul { font-size: 16px; }
+}
