@@ -1,7 +1,7 @@
 const MAPBOX_TOKEN = 'pk.eyJ1IjoianBpYWMiLCJhIjoiY21wZzNpazdvMGRlbzJxcHF1aXJ3cGNqMiJ9.G5Sxa6-8vxshvOvIWZwgkA'; // ← fill in your token here
 
 const DATA_URL = './data/nyc_final.json';
-const TOP_KINDRED = 5;
+const TOP_KINDRED = 8;
 
 const COLOR_BY_TYPE = {
   cafe: '#E07A5F',
@@ -36,11 +36,102 @@ const COLOR_BY_TYPE = {
 const COLOR_DEFAULT = '#888888';
 
 const ATMOSPHERE_LABELS = {
+  // Original 4
   outdoor_seating: 'outdoor seating',
   live_music: 'live music',
   good_for_groups: 'good for groups',
   serves_coffee: 'serves coffee',
+  // New fields from 02d
+  good_for_children: 'family friendly',
+  allows_dogs: 'dog friendly',
+  good_for_watching_sports: 'good for sports',
+  serves_beer: 'serves beer',
+  serves_cocktails: 'serves cocktails',
+  serves_wine: 'serves wine',
+  reservable: 'reservable',
 };
+
+const OSM_TYPE_LABELS = {
+  cafe: 'Café',
+  bar: 'Bar',
+  pub: 'Pub',
+  library: 'Library',
+  community_centre: 'Community Center',
+  social_facility: 'Social Facility',
+  hackerspace: 'Hackerspace',
+  social_club: 'Social Club',
+  arts_centre: 'Arts Center',
+  theatre: 'Theater',
+  cinema: 'Cinema',
+  music_venue: 'Music Venue',
+  concert_hall: 'Concert Hall',
+  nightclub: 'Nightclub',
+  museum: 'Museum',
+  gallery: 'Gallery',
+  park: 'Park',
+  garden: 'Garden',
+  playground: 'Playground',
+  pitch: 'Sports Field',
+  sports_centre: 'Sports Center',
+  fitness_centre: 'Fitness Center',
+  swimming_pool: 'Swimming Pool',
+  books: 'Bookshop',
+  records: 'Record Shop',
+  hairdresser: 'Hair Salon',
+  beauty: 'Beauty Salon',
+  tattoo: 'Tattoo Shop',
+  bakery: 'Bakery',
+  deli: 'Deli',
+  laundry: 'Laundromat',
+  coffee: 'Coffee Roaster',
+  place_of_worship: 'Place of Worship',
+  dance: 'Dance Venue',
+  amusement_arcade: 'Arcade',
+  bowling_alley: 'Bowling Alley',
+  ice_rink: 'Ice Rink',
+  escape_game: 'Escape Room',
+  marketplace: 'Marketplace',
+  food_court: 'Food Court',
+  memorial: 'Memorial',
+  monument: 'Monument',
+  artwork: 'Public Art',
+  attraction: 'Attraction',
+  viewpoint: 'Viewpoint',
+  bench: 'Bench',
+  dog_park: 'Dog Park',
+  nature_reserve: 'Nature Reserve',
+  bandstand: 'Bandstand',
+  firepit: 'Fire Pit',
+  chess_table: 'Chess Table',
+  miniature_golf: 'Mini Golf',
+  sauna: 'Sauna',
+  internet_cafe: 'Internet Café',
+  public_bath: 'Public Bath',
+  public_bookcase: 'Little Free Library',
+  stripclub: 'Strip Club',
+  social_club: 'Social Club',
+  bbq: 'BBQ Area',
+  fountain: 'Fountain',
+  shelter: 'Shelter',
+  outdoor_seating: 'Outdoor Seating',
+  square: 'Public Square',
+  pastry: 'Pastry Shop',
+  florist: 'Florist',
+  chocolate: 'Chocolate Shop',
+  tea: 'Tea Shop',
+  ice_cream: 'Ice Cream',
+  antiques: 'Antique Shop',
+  craft: 'Craft Shop',
+  art: 'Art Shop',
+  musical_instrument: 'Music Shop',
+  zoo: 'Zoo',
+  aquarium: 'Aquarium',
+  concert_hall: 'Concert Hall',
+};
+
+function formatOsmType(type) {
+  return OSM_TYPE_LABELS[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 
 let map;
 let featuresById = new Map();
@@ -152,21 +243,8 @@ function removeConstellationLayers(mapInstance) {
   }
 }
 
-const DEFAULT_OPACITY_EXPR = [
-  'case',
-  ['==', ['get', 'tier'], 3], 0.45,
-  0.9,
-];
-const SELECTION_OPACITY_EXPR = [
-  'case',
-  ['boolean', ['feature-state', 'selected'], false], 0.95,
-  ['boolean', ['feature-state', 'connected'], false], 0.9,
-  // Second-tier kindred get partial visibility so the smaller overlay dot
-  // on top reads cleanly without the base dot showing through faded.
-  ['boolean', ['feature-state', 'second_connected'], false], 0.7,
-  ['==', ['get', 'tier'], 3], 0.2,
-  0.2,
-];
+const DEFAULT_OPACITY_EXPR = 0.9;
+const SELECTION_OPACITY_EXPR = 0.1;
 
 function showError(msg) {
   const el = document.getElementById('error');
@@ -246,26 +324,6 @@ function buildGeoJSON(raw) {
   return { type: 'FeatureCollection', features };
 }
 
-function renderStars(rating) {
-  if (!isPresent(rating)) return '';
-  const num = Number(rating);
-  const pct = Math.max(0, Math.min(5, num)) / 5 * 100;
-  return (
-    '<span class="rating" aria-label="' + escapeHtml(num.toFixed(1) + ' out of 5') + '">' +
-    '<span class="rating-empty">★★★★★</span>' +
-    '<span class="rating-filled" style="width:' + pct + '%">★★★★★</span>' +
-    '</span>' +
-    '<span class="rating-num">' + escapeHtml(num.toFixed(1)) + '</span>'
-  );
-}
-
-function renderReviewCount(n) {
-  if (!isPresent(n)) return '';
-  const num = Number(n);
-  if (!Number.isFinite(num)) return '';
-  return '<span class="review-count">' + num.toLocaleString() + ' reviews</span>';
-}
-
 function renderAtmosphere(atmosphere) {
   if (!atmosphere) return '';
   const pills = [];
@@ -287,7 +345,7 @@ function renderKindred(similarityIds) {
     cards.push(
       '<button class="kindred-card" data-id="' + escapeHtml(id) + '">' +
       '<div class="kindred-name">' + escapeHtml(place.name || '(unnamed)') + '</div>' +
-      '<div class="kindred-type">' + escapeHtml(place.osm_type || '') + '</div>' +
+      '<div class="kindred-type">' + escapeHtml(formatOsmType(place.osm_type || '')) + '</div>' +
       '</button>'
     );
   }
@@ -375,7 +433,7 @@ function buildFirstTierLayers(lineData) {
       getSourcePosition: (d) => d.path[0],
       getTargetPosition: (d) => d.path[1],
       getColor: (d) => [d.color[0], d.color[1], d.color[2], 60],
-      getWidth: 6,
+      getWidth: 5,
       widthUnits: 'pixels',
     }),
     new deck.LineLayer({
@@ -384,7 +442,7 @@ function buildFirstTierLayers(lineData) {
       getSourcePosition: (d) => d.path[0],
       getTargetPosition: (d) => d.path[1],
       getColor: (d) => d.color,
-      getWidth: 2,
+      getWidth: 2.5,
       widthUnits: 'pixels',
     }),
   ];
@@ -397,7 +455,7 @@ function buildSecondTierLayers(lineData) {
       data: lineData,
       getSourcePosition: (d) => d.path[0],
       getTargetPosition: (d) => d.path[1],
-      getColor: (d) => [d.color[0], d.color[1], d.color[2], 40],
+      getColor: (d) => [d.color[0], d.color[1], d.color[2], 60],
       getWidth: 3,
       widthUnits: 'pixels',
     }),
@@ -406,7 +464,7 @@ function buildSecondTierLayers(lineData) {
       data: lineData,
       getSourcePosition: (d) => d.path[0],
       getTargetPosition: (d) => d.path[1],
-      getColor: (d) => [d.color[0], d.color[1], d.color[2], 180],
+      getColor: (d) => [d.color[0], d.color[1], d.color[2], 200],
       getWidth: 1.5,
       widthUnits: 'pixels',
     }),
@@ -447,8 +505,8 @@ function drawKindredLines(placeId) {
     return {
       from: source.coordinates,
       to: dest.coordinates,
-      sourceColor: [...sourceColor, 220],
-      targetColor: [...destColor, 220],
+      sourceColor: [...sourceColor, 250],
+      targetColor: [...destColor, 250],
     };
   }).filter(Boolean);
 
@@ -529,7 +587,7 @@ function drawKindredLines(placeId) {
 function resetSecondConnectedFeatureStates() {
   if (!map || secondConnectedIds.size === 0) return;
   for (const id of secondConnectedIds) {
-    map.setFeatureState({ source: 'places', id }, { second_connected: false });
+    map.setFeatureState({ source: 'places', sourceLayer: 'nyc_places', id }, { second_connected: false });
   }
   secondConnectedIds.clear();
 }
@@ -573,21 +631,20 @@ function drawSecondTierLines(firstTierIds) {
       segments.push({
         from: firstPlace.coordinates,
         to: secondPlace.coordinates,
-        sourceColor: [...firstColor, 220],
-        targetColor: [...secondColor, 220],
+        sourceColor: [...firstColor, 240],
+        targetColor: [...secondColor, 240],
       });
       // Collect dest source IDs — we'll flip feature-state inside the
       // setTimeout below so the dot fade-in starts the same instant the
       // arc animation does (rather than ~200ms earlier).
-      const secondSourceId = pidToSourceId.get(secondId);
-      if (secondSourceId != null) destSourceIds.push(secondSourceId);
+      destSourceIds.push(secondId);
     }
   }
 
   if (segments.length === 0) return;
 
   const ARC_POINTS = 40;
-  const ARC_HEIGHT = 0.4;
+  const ARC_HEIGHT = 0.3;
   const DURATION = 1500;
   const START_DELAY_MS = 50;
 
@@ -620,7 +677,7 @@ function drawSecondTierLines(firstTierIds) {
     } catch (e) {}
 
     for (const id of destSourceIds) {
-      map.setFeatureState({ source: 'places', id }, { second_connected: true });
+      map.setFeatureState({ source: 'places', sourceLayer: 'nyc_places', id }, { second_connected: true });
       secondConnectedIds.add(id);
     }
     const startTime = performance.now();
@@ -649,7 +706,7 @@ function drawSecondTierLines(firstTierIds) {
       try {
         map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', [
           'case',
-          ['boolean', ['feature-state', 'second_connected'], false], eased * 0.9,
+          ['boolean', ['feature-state', 'second_connected'], false], eased * 0.7,
           0,
         ]);
         map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', [
@@ -759,7 +816,7 @@ function unfadeMain() {
   // down to 3–5 fps — visually the animation took 5–10 seconds. Mapbox
   // applies a literal opacity as a single uniform update, no per-feature
   // work, so this stays at 60fps even on the full NYC dataset.
-  const FROM = 0.2;   // SELECTION_OPACITY_EXPR's dimmed default
+  const FROM = 0.1;   // SELECTION_OPACITY_EXPR's dimmed default
   const TO = 0.9;     // DEFAULT_OPACITY_EXPR's tier-1/2 value
   const DURATION = 300;
   const startTime = performance.now();
@@ -789,56 +846,38 @@ function unfadeMain() {
 }
 
 function setSelected(placeId) {
-  // Cancel any in-flight unfade — selecting a new place mid-unfade would
-  // otherwise have the rAF clobber our SELECTION_OPACITY_EXPR setup below.
-  if (unfadeMainAnimFrame !== null) {
-    cancelAnimationFrame(unfadeMainAnimFrame);
-    unfadeMainAnimFrame = null;
-  }
   if (selectedId !== null) {
-    map.setFeatureState({ source: 'places', id: selectedId }, { selected: false });
+    map.setFeatureState(
+      { source: 'places', sourceLayer: 'nyc_places', id: selectedId },
+      { selected: false }
+    );
     selectedId = null;
   }
   for (const id of connectedIds) {
-    map.setFeatureState({ source: 'places', id }, { connected: false });
+    map.setFeatureState(
+      { source: 'places', sourceLayer: 'nyc_places', id },
+      { connected: false }
+    );
   }
   connectedIds.clear();
 
   const place = featuresById.get(placeId);
-  const sourceId = pidToSourceId.get(placeId);
-  if (sourceId != null) {
-    map.setFeatureState({ source: 'places', id: sourceId }, { selected: true });
-    selectedId = sourceId;
-    selectedPlaceId = placeId;
-  }
+  // Use string placeId directly — promoteId maps the 'id' property
+  map.setFeatureState(
+    { source: 'places', sourceLayer: 'nyc_places', id: placeId },
+    { selected: true }
+  );
+  selectedId = placeId;
+  selectedPlaceId = placeId;
 
   if (place && Array.isArray(place.similarity_ids)) {
     for (const pid of place.similarity_ids.slice(0, TOP_KINDRED)) {
-      const kSourceId = pidToSourceId.get(pid);
-      if (kSourceId == null) continue;
-      map.setFeatureState({ source: 'places', id: kSourceId }, { connected: true });
-      connectedIds.add(kSourceId);
+      map.setFeatureState(
+        { source: 'places', sourceLayer: 'nyc_places', id: pid },
+        { connected: true }
+      );
+      connectedIds.add(pid);
     }
-  }
-
-  // Suppress the instant pop: flipping feature-state.connected would
-  // otherwise snap the connected-overlay dots to full opacity (Mapbox's
-  // transition system doesn't actually animate per-feature value changes
-  // driven by feature-state expressions — known limitation). We zero the
-  // case expression's target value and disable transitions; drawKindredLines's
-  // rAF will drive opacity/stroke per frame, in sync with the arc growth.
-  if (map.getLayer('places-circles-connected-overlay')) {
-    map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity-transition', { duration: 0, delay: 0 });
-    map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity', [
-      'case',
-      ['boolean', ['feature-state', 'connected'], false], 0,
-      0,
-    ]);
-    map.setPaintProperty('places-circles-connected-overlay', 'circle-stroke-width', [
-      'case',
-      ['boolean', ['feature-state', 'connected'], false], 0,
-      0,
-    ]);
   }
 
   map.setPaintProperty('places-circles-main', 'circle-opacity', SELECTION_OPACITY_EXPR);
@@ -855,19 +894,13 @@ function openSidebar(placeId) {
   const badgeColor = COLOR_BY_TYPE[place.osm_type] || COLOR_DEFAULT;
   const parts = [];
   parts.push(
-    '<div class="place-type-badge" style="background:' + badgeColor + '">' +
-    escapeHtml(place.osm_type || '') + '</div>'
+   '<div class="place-type-badge" style="background:' + badgeColor + '">' +
+escapeHtml(formatOsmType(place.osm_type || '')) + '</div>'
   );
   parts.push('<h2 class="place-name">' + escapeHtml(place.name || '(unnamed)') + '</h2>');
 
   if (isPresent(place.soul_summary)) {
     parts.push('<p class="place-soul">' + escapeHtml(place.soul_summary) + '</p>');
-  }
-
-  const ratingHtml = renderStars(place.rating);
-  const reviewCountHtml = renderReviewCount(place.review_count);
-  if (ratingHtml || reviewCountHtml) {
-    parts.push('<div class="place-meta">' + ratingHtml + reviewCountHtml + '</div>');
   }
 
   if (isPresent(place.editorial_summary)) {
@@ -916,27 +949,27 @@ function closeSidebar() {
   sidebar.classList.remove('is-open');
   sidebar.setAttribute('aria-hidden', 'true');
   if (selectedId !== null) {
-    map.setFeatureState({ source: 'places', id: selectedId }, { selected: false });
+    map.setFeatureState(
+      { source: 'places', sourceLayer: 'nyc_places', id: selectedId },
+      { selected: false }
+    );
     selectedId = null;
   }
   selectedPlaceId = null;
   for (const id of connectedIds) {
-    map.setFeatureState({ source: 'places', id }, { connected: false });
+    map.setFeatureState(
+      { source: 'places', sourceLayer: 'nyc_places', id },
+      { connected: false }
+    );
   }
   connectedIds.clear();
   clearKindredLines();
-  // Explicit second-tier clear, even though clearKindredLines() already
-  // cascades into it — defensive against future refactors. The toggle
-  // button itself is part of the sidebar markup, so it goes away when
-  // sidebar-content is re-rendered on the next openSidebar.
   clearSecondTierLines();
+  const tierBtn = document.getElementById('second-tier-toggle');
+  if (tierBtn) tierBtn.style.display = 'none';
   if (map) {
-    // Drive the un-fade with an rAF (see unfadeMain). The previous
-    // transition-toggle approach worked in theory but Mapbox's render
-    // batching could apply the restored transition before the expression
-    // swap committed, leaving the dots stuck at the dimmed value.
-    unfadeMain();
-    if (wasOpen) map.easeTo({ padding: { right: 0 }, duration: 250 });
+  unfadeMain();
+  if (wasOpen) map.easeTo({ padding: { right: 0 }, duration: 250 });
   }
   map.setConfigProperty('basemap', 'transition', { duration: 300, delay: 0 });
   map.setPaintProperty('faded-overlay', 'background-opacity', 0, { duration: 300 });
@@ -1030,7 +1063,11 @@ async function initMap() {
   // re-use it on replay without going back to the network).
   geojsonData = geojson;
 
-  map.addSource('places', { type: 'geojson', data: geojson });
+  map.addSource('places', {
+  type: 'vector',
+  url: 'mapbox://jpiac.6vmp9rv4',
+  promoteId: { 'nyc_places': 'id' },
+  });
 
   // Add the constellation source/layers only if the narrative is going to
   // play this session — return visitors don't need 20 hidden layers eating
@@ -1047,6 +1084,7 @@ async function initMap() {
     id: 'places-circles-main',
     type: 'circle',
     source: 'places',
+    'source-layer': 'nyc_places',
     slot: 'top',
     filter: ['match', ['get', 'osm_type'],
   ['cafe', 'bar', 'pub', 'library', 'community_centre',
@@ -1069,8 +1107,8 @@ async function initMap() {
         [
           'interpolate', ['linear'],
           ['coalesce', ['to-number', ['get', 'review_count']], 0],
-          0, 2,
-          1000, 4,
+          0, 1,
+          1000, 2,
         ],
         15,
         [
@@ -1091,8 +1129,8 @@ async function initMap() {
       'circle-stroke-width': [
         'interpolate', ['linear'],
         ['zoom'],
-        10, 0.5,
-        15, 2,
+        10, 0.2,
+        15, 1.5,
       ],
     },
   });
@@ -1115,6 +1153,7 @@ async function initMap() {
     id: 'places-circles-second-tier-overlay',
     type: 'circle',
     source: 'places',
+    'source-layer': 'nyc_places',
     filter: ['match', ['get', 'osm_type'],
   ['cafe', 'bar', 'pub', 'library', 'community_centre',
    'social_facility', 'hackerspace', 'social_club',
@@ -1138,7 +1177,7 @@ async function initMap() {
       'circle-emissive-strength': 1,
       'circle-opacity': [
         'case',
-        ['boolean', ['feature-state', 'second_connected'], false], 0.9,
+        ['boolean', ['feature-state', 'second_connected'], false], 0.5,
         0,
       ],
       // Matches the arc draw duration in drawSecondTierLines so dot
@@ -1164,6 +1203,7 @@ async function initMap() {
     id: 'places-circles-connected-overlay',
     type: 'circle',
     source: 'places',
+    'source-layer': 'nyc_places',
     filter: ['match', ['get', 'osm_type'],
   ['cafe', 'bar', 'pub', 'library', 'community_centre',
    'social_facility', 'hackerspace', 'social_club',
@@ -1210,6 +1250,7 @@ async function initMap() {
     id: 'places-circles-selected-overlay',
     type: 'circle',
     source: 'places',
+    'source-layer': 'nyc_places',
     filter: ['match', ['get', 'osm_type'],
   ['cafe', 'bar', 'pub', 'library', 'community_centre',
    'social_facility', 'hackerspace', 'social_club',
@@ -1256,41 +1297,52 @@ async function initMap() {
   }
 
   function onCircleMouseEnter(e) {
-    if (!e.features.length) return;
-    map.getCanvas().style.cursor = 'pointer';
-    const id = e.features[0].id;
-    if (hoveredId !== null && hoveredId !== id) {
-      map.setFeatureState({ source: 'places', id: hoveredId }, { hover: false });
-    }
-    hoveredId = id;
-    map.setFeatureState({ source: 'places', id: hoveredId }, { hover: true });
+  if (!e.features.length) return;
+  map.getCanvas().style.cursor = 'pointer';
+  const id = e.features[0].properties.id; // use properties.id not feature.id
+  if (hoveredId !== null && hoveredId !== id) {
+    map.setFeatureState(
+      { source: 'places', sourceLayer: 'nyc_places', id: hoveredId },
+      { hover: false }
+    );
   }
+  hoveredId = id;
+  map.setFeatureState(
+    { source: 'places', sourceLayer: 'nyc_places', id: hoveredId },
+    { hover: true }
+  );
+}
 
-  function onCircleMouseLeave() {
-    map.getCanvas().style.cursor = '';
-    if (hoveredId !== null) {
-      map.setFeatureState({ source: 'places', id: hoveredId }, { hover: false });
-      hoveredId = null;
-    }
+function onCircleMouseLeave() {
+  map.getCanvas().style.cursor = '';
+  if (hoveredId !== null) {
+    map.setFeatureState(
+      { source: 'places', sourceLayer: 'nyc_places', id: hoveredId },
+      { hover: false }
+    );
+    hoveredId = null;
   }
+}
 
   function onCircleClick(e) {
-    if (!e.features.length) return;
-    const priorityHits = map.queryRenderedFeatures(e.point, {
-      layers: [
-        'places-circles-selected-overlay',
-        'places-circles-connected-overlay',
-        'places-circles-main',
-      ]
-    });
-    const hit = priorityHits.length > 0 ? priorityHits[0] : e.features[0];
-    const pid = hit.properties.id;
-    if (!pid) return;
-    openSidebar(pid);
-  }
+  if (!e.features.length) return;
+  const priorityHits = map.queryRenderedFeatures(e.point, {
+    layers: [
+      'places-circles-selected-overlay',
+      'places-circles-connected-overlay',
+      'places-circles-second-tier-overlay',
+      'places-circles-main',
+    ]
+  });
+  const hit = priorityHits.length > 0 ? priorityHits[0] : e.features[0];
+  const pid = hit.properties.id;
+  if (!pid) return;
+  openSidebar(pid);
+}
 
   ['places-circles-main',
     'places-circles-connected-overlay',
+    'places-circles-second-tier-overlay',
     'places-circles-selected-overlay'].forEach(layer => {
     map.on('mouseenter', layer, onCircleMouseEnter);
     map.on('mouseleave', layer, onCircleMouseLeave);
@@ -1304,6 +1356,7 @@ async function initMap() {
       layers: [
         'places-circles-selected-overlay',
         'places-circles-connected-overlay',
+        'places-circles-second-tier-overlay',
         'places-circles-main',
       ]
     });
