@@ -5,6 +5,10 @@
   --accent: #E07A5F;
   --border: #e7e2d6;
   --editorial-bg: #f5f1ea;
+  /* Restored — used by the sparkline + future review-related UI. The
+     reviews block that originally referenced this got removed; the
+     sparkline brings it back. */
+  --review-bg: #faf7f1;
   --font-display: 'Playfair Display', Georgia, serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --transition: 250ms ease;
@@ -421,6 +425,149 @@ html, body {
 .second-tier-icon {
   font-size: 13px;
   line-height: 1;
+}
+
+/* About panel — slides in from the right opposite the sidebar. Higher
+   z-index than the sidebar so it overlays cleanly if both are open. */
+#about-btn {
+  margin-left: 8px;
+  background: transparent;
+  border: 1px solid rgba(43, 43, 43, 0.3);
+  color: var(--text-muted);
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+#about-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#about-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 100%;
+  background: #ffffff;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.10);
+  transform: translateX(100%);
+  transition: transform 250ms ease;
+  overflow-y: auto;
+  z-index: 12;
+}
+#about-panel.is-open {
+  transform: translateX(0);
+}
+.about-inner {
+  padding: 32px 32px 64px;
+}
+.about-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 22px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition), color var(--transition);
+}
+.about-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text);
+}
+.about-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+.about-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0 0 32px;
+}
+.about-section {
+  margin-bottom: 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+}
+.about-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+.about-section h3 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+.about-section p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #444;
+  margin: 0 0 10px;
+}
+.about-section p:last-child { margin-bottom: 0; }
+.about-section ul {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #444;
+  padding-left: 20px;
+  margin: 8px 0;
+}
+.about-section li { margin-bottom: 4px; }
+.about-sources p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.about-sources a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.about-sources a:hover { text-decoration: underline; }
+
+/* Rating sparkline — sidebar viz showing rating-over-time for places
+   with 5+ rated, dated reviews. */
+.sparkline-wrap {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  background: var(--review-bg);
+  border-radius: 6px;
+}
+.sparkline-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.sparkline-avg {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+  margin-left: 6px;
+}
+.sparkline {
+  display: block;
+  width: 100%;
+  height: 40px;
 }
 
 /* Mobile */

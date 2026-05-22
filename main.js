@@ -324,6 +324,28 @@ function buildGeoJSON(raw) {
   return { type: 'FeatureCollection', features };
 }
 
+function renderSparkline(reviews, color) {
+  const W = 280, H = 40, PAD = 4;
+  const ratings = reviews.map((r) => r.rating);
+  const min = Math.min(...ratings);
+  const max = Math.max(...ratings);
+  const range = max - min || 1;
+  const pts = ratings.map((r, i) => {
+    const x = PAD + (i / (ratings.length - 1)) * (W - PAD * 2);
+    const y = PAD + (1 - (r - min) / range) * (H - PAD * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const avg = (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1);
+  return (
+    '<div class="sparkline-wrap">' +
+    '<div class="sparkline-label">Rating over time <span class="sparkline-avg">avg ' + avg + '</span></div>' +
+    '<svg class="sparkline" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' +
+    '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.8"/>' +
+    '</svg>' +
+    '</div>'
+  );
+}
+
 function renderAtmosphere(atmosphere) {
   if (!atmosphere) return '';
   const pills = [];
@@ -909,6 +931,16 @@ escapeHtml(formatOsmType(place.osm_type || '')) + '</div>'
     parts.push('<p class="place-soul">' + escapeHtml(place.soul_summary) + '</p>');
   }
 
+  // Rating sparkline — only if 5+ reviews carry both a rating and a date.
+  // Pre-sorted ascending so the line reads left-to-right as oldest →
+  // newest.
+  const ratedReviews = (place.reviews || [])
+    .filter((r) => r && r.rating && r.publish_time)
+    .sort((a, b) => new Date(a.publish_time) - new Date(b.publish_time));
+  if (ratedReviews.length >= 5) {
+    parts.push(renderSparkline(ratedReviews, COLOR_BY_TYPE[place.osm_type] || COLOR_DEFAULT));
+  }
+
   if (isPresent(place.editorial_summary)) {
     parts.push('<p class="place-editorial">' + escapeHtml(place.editorial_summary) + '</p>');
   }
@@ -1380,6 +1412,29 @@ function onCircleMouseLeave() {
   });
 }
 
+function toggleAbout() {
+  const panel = document.getElementById('about-panel');
+  if (!panel) return;
+  const isOpen = panel.classList.contains('is-open');
+  panel.classList.toggle('is-open');
+  panel.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
+}
+window.toggleAbout = toggleAbout;
+
+// Click anywhere outside the open panel (and not on the open-button)
+// closes it. Mapbox's map.on('click') handles its own canvas-clicks
+// separately, so this and the deselect logic don't collide.
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('about-panel');
+  const btn = document.getElementById('about-btn');
+  if (panel && panel.classList.contains('is-open')) {
+    if (!panel.contains(e.target) && e.target !== btn) {
+      panel.classList.remove('is-open');
+      panel.setAttribute('aria-hidden', 'true');
+    }
+  }
+});
+
 function initUI() {
   document.getElementById('sidebar-close').addEventListener('click', closeSidebar);
   document.addEventListener('keydown', (e) => {
@@ -1387,6 +1442,9 @@ function initUI() {
   });
   document.getElementById('sidebar-content').innerHTML =
     '<p class="empty-state">Click any point on the map to explore a place.</p>';
+  // Wire the About panel's close (X) button.
+  const aboutClose = document.getElementById('about-close');
+  if (aboutClose) aboutClose.addEventListener('click', toggleAbout);
 }
 
 if (!MAPBOX_TOKEN) {
