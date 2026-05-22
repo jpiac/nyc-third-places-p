@@ -765,6 +765,9 @@ function clearKindredLines() {
 
 function toggleSecondTier() {
   showSecondTier = !showSecondTier;
+  // Mirror to window so narrative.js (and any other external caller) can
+  // read the current state without reaching into the IIFE.
+  window.showSecondTier = showSecondTier;
   const btn = document.getElementById('second-tier-toggle');
   if (btn) btn.classList.toggle('is-active', showSecondTier);
 
@@ -779,6 +782,9 @@ function toggleSecondTier() {
   drawSecondTierLines(place.similarity_ids.slice(0, TOP_KINDRED));
 }
 window.toggleSecondTier = toggleSecondTier;
+// Initial state mirrored once on load so callers that read window.showSecondTier
+// before any toggle still see the current value.
+window.showSecondTier = showSecondTier;
 
 // Constellation pulse animation moved to narrative.js so each reveal group
 // can have its own start time — gives the twinkling effect instead of every
@@ -936,7 +942,7 @@ escapeHtml(formatOsmType(place.osm_type || '')) + '</div>'
       const id = btn.getAttribute('data-id');
       const target = featuresById.get(id);
       if (target && Array.isArray(target.coordinates)) {
-        map.flyTo({ center: target.coordinates, zoom: 16, pitch: 65, duration: 1800 });
+        map.flyTo({ center: target.coordinates, zoom: 16, pitch: 65, duration: 3500 });
       }
       openSidebar(id);
     });
@@ -999,6 +1005,7 @@ async function initMap() {
   hideLoading();
 
   // Expose populated globals for narrative.js
+  window.setSelected = setSelected;
   window.featuresById = featuresById;
   window.drawKindredLines = drawKindredLines;
   window.clearKindredLines = clearKindredLines;
@@ -1298,6 +1305,7 @@ async function initMap() {
 
   function onCircleMouseEnter(e) {
   if (!e.features.length) return;
+  if (document.getElementById('narrative-overlay')?.classList.contains('is-interactive')) return;
   map.getCanvas().style.cursor = 'pointer';
   const id = e.features[0].properties.id; // use properties.id not feature.id
   if (hoveredId !== null && hoveredId !== id) {
@@ -1326,6 +1334,8 @@ function onCircleMouseLeave() {
 
   function onCircleClick(e) {
   if (!e.features.length) return;
+  if (document.getElementById('narrative-overlay') && 
+      document.getElementById('narrative-overlay').classList.contains('is-interactive')) return;
   const priorityHits = map.queryRenderedFeatures(e.point, {
     layers: [
       'places-circles-selected-overlay',
@@ -1333,12 +1343,12 @@ function onCircleMouseLeave() {
       'places-circles-second-tier-overlay',
       'places-circles-main',
     ]
-  });
-  const hit = priorityHits.length > 0 ? priorityHits[0] : e.features[0];
-  const pid = hit.properties.id;
-  if (!pid) return;
-  openSidebar(pid);
-}
+    });
+    const hit = priorityHits.length > 0 ? priorityHits[0] : e.features[0];
+    const pid = hit.properties.id;
+    if (!pid) return;
+    openSidebar(pid);
+  }
 
   ['places-circles-main',
     'places-circles-connected-overlay',
@@ -1352,6 +1362,8 @@ function onCircleMouseLeave() {
   // Click on empty map area → deselect
   map.on('click', (e) => {
     if (selectedId === null) return;
+    if (document.getElementById('narrative-overlay') && 
+      document.getElementById('narrative-overlay').classList.contains('is-interactive')) return;
     const hits = map.queryRenderedFeatures(e.point, {
       layers: [
         'places-circles-selected-overlay',
