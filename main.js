@@ -1,7 +1,6 @@
 const MAPBOX_TOKEN = 'pk.eyJ1IjoianBpYWMiLCJhIjoiY21wZzNpazdvMGRlbzJxcHF1aXJ3cGNqMiJ9.G5Sxa6-8vxshvOvIWZwgkA'; // ← fill in your token here
 
-const DATA_URL = './data/brooklyn_final.json';
-const REVIEW_TRUNCATE = 200;
+const DATA_URL = './data/nyc_final.json';
 const TOP_KINDRED = 5;
 
 const COLOR_BY_TYPE = {
@@ -13,6 +12,26 @@ const COLOR_BY_TYPE = {
   social_facility: '#F2CC8F',
   hackerspace: '#A8DADC',
   social_club: '#A8DADC',
+  // New types
+  arts_centre: '#C084FC',
+  theatre: '#C084FC',
+  cinema: '#C084FC',
+  music_venue: '#818CF8',
+  nightclub: '#818CF8',
+  museum: '#34D399',
+  gallery: '#34D399',
+  park: '#6EE7B7',
+  garden: '#6EE7B7',
+  playground: '#6EE7B7',
+  memorial: '#94A3B8',
+  monument: '#94A3B8',
+  artwork: '#F472B6',
+  place_of_worship: '#FCD34D',
+  hairdresser: '#FB923C',
+  beauty: '#FB923C',
+  fitness_centre: '#60A5FA',
+  sports_centre: '#60A5FA',
+  swimming_pool: '#60A5FA',
 };
 const COLOR_DEFAULT = '#888888';
 
@@ -28,13 +47,110 @@ let featuresById = new Map();
 let pidToSourceId = new Map();
 let hoveredId = null;
 let selectedId = null;
+let selectedPlaceId = null; // string id mirror of selectedId, used by toggleSecondTier
 let connectedIds = new Set();
+// Numeric source IDs of places currently styled as second-tier kindred —
+// tracked so we can reset their feature-state when the toggle turns off or
+// a new place is selected.
+let secondConnectedIds = new Set();
 let deckInstance;
 let arcAnimFrame = null;
+let secondTierAnimFrame = null;
+// rAF handle for the places-circles-main "unfade" back to defaults on
+// closeSidebar. Same pattern as the dot fade-ins: Mapbox's transitions on
+// data-driven opacity expressions are unreliable, so we drive the case
+// expression's default-branch value per frame instead.
+let unfadeMainAnimFrame = null;
+// 200ms start-delay handle for the second-tier draw. Cleared along with the
+// rAF so a fast close/reselect during the gap can't race a stale animation.
+let secondTierDelayTimer = null;
+// Per-tier line data cached at module level so renderArcs() can re-emit both
+// tiers together — deck.gl's setProps replaces all layers, so we have to
+// pass both sets every time we want both visible.
+let firstTierLineData = [];
+let secondTierLineData = [];
+let showSecondTier = false;
 // One Mapbox sub-layer per reveal_group bucket — narrative.js drives each
 // layer's literal opacity / radius / blur for staggered reveals and
 // per-group twinkling.
 const CONSTELLATION_GROUP_COUNT = 20;
+
+// Stashed GeoJSON for reuse by addConstellationLayers() after teardown.
+// Set in initMap(); referenced by the constellation source setup so we can
+// remove + re-add the layers across a replay without re-fetching.
+let geojsonData = null;
+
+// Constellation styling moved to module scope so both initMap() and any
+// replay path (which calls addConstellationLayers anew) reuse the same
+// arrays. Memory-wise these are tiny — the win from removing constellation
+// after the narrative ends is in the Mapbox tile state, not these consts.
+const CONSTELLATION_TYPES = [
+  'cafe', 'bar', 'pub', 'library', 'community_centre',
+  'social_facility', 'hackerspace', 'social_club',
+  'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
+  'museum', 'gallery', 'park', 'garden', 'playground',
+  'sports_centre', 'fitness_centre', 'swimming_pool',
+  'books', 'records', 'hairdresser', 'beauty', 'tattoo',
+  'bakery', 'deli', 'laundry', 'coffee',
+  'place_of_worship',
+  'dance', 'amusement_arcade', 'bowling_alley',
+  'marketplace', 'memorial', 'monument', 'artwork',
+  'attraction', 'viewpoint',
+];
+const CONSTELLATION_COLOR_EXPR = [
+  'interpolate', ['linear'],
+  ['get', 'reveal_group'],
+  0,  '#ffffff',
+  5,  '#fff9c4',
+  10, '#ffe066',
+  15, '#fff5a0',
+  19, '#ffffff',
+];
+
+// Add the 'constellation' source + 20 per-reveal-group circle layers.
+// Idempotent — bails if the source already exists, so it's safe to call
+// from the replay path. Source intentionally re-uses geojsonData rather
+// than re-fetching.
+function addConstellationLayers(mapInstance) {
+  if (!geojsonData) return;
+  if (mapInstance.getSource('constellation')) return;
+  mapInstance.addSource('constellation', { type: 'geojson', data: geojsonData });
+  for (let g = 0; g < CONSTELLATION_GROUP_COUNT; g++) {
+    mapInstance.addLayer({
+      id: `constellation-stars-${g}`,
+      type: 'circle',
+      source: 'constellation',
+      layout: { 'visibility': 'none' },
+      filter: ['all',
+        ['match', ['get', 'osm_type'], CONSTELLATION_TYPES, true, false],
+        ['==', ['get', 'reveal_group'], g],
+      ],
+      paint: {
+        'circle-radius': 2,
+        'circle-color': CONSTELLATION_COLOR_EXPR,
+        'circle-opacity': 0,
+        'circle-opacity-transition': { duration: 2000, delay: 0 },
+        'circle-blur': 1.2,
+        'circle-emissive-strength': 1,
+        'circle-stroke-width': 0,
+      },
+    });
+  }
+}
+
+// Remove all 20 layers AND the source, freeing the Mapbox tile state /
+// internal geojson copy. Called by narrative.js after the intro fades.
+// Layers must be removed first — Mapbox refuses to remove a source still
+// referenced by any layer.
+function removeConstellationLayers(mapInstance) {
+  for (let g = 0; g < CONSTELLATION_GROUP_COUNT; g++) {
+    const id = `constellation-stars-${g}`;
+    if (mapInstance.getLayer(id)) mapInstance.removeLayer(id);
+  }
+  if (mapInstance.getSource('constellation')) {
+    mapInstance.removeSource('constellation');
+  }
+}
 
 const DEFAULT_OPACITY_EXPR = [
   'case',
@@ -45,8 +161,11 @@ const SELECTION_OPACITY_EXPR = [
   'case',
   ['boolean', ['feature-state', 'selected'], false], 0.95,
   ['boolean', ['feature-state', 'connected'], false], 0.9,
-  ['==', ['get', 'tier'], 3], 0.4,
-  0.3,
+  // Second-tier kindred get partial visibility so the smaller overlay dot
+  // on top reads cleanly without the base dot showing through faded.
+  ['boolean', ['feature-state', 'second_connected'], false], 0.7,
+  ['==', ['get', 'tier'], 3], 0.2,
+  0.2,
 ];
 
 function showError(msg) {
@@ -76,14 +195,6 @@ function isPresent(v) {
   return v !== null && v !== undefined && v !== '' && v !== 'null' && v !== 'undefined';
 }
 
-function truncateText(text, n) {
-  if (!text || text.length <= n) return { text: text || '', truncated: false };
-  let cut = text.slice(0, n);
-  const lastSpace = cut.lastIndexOf(' ');
-  if (lastSpace > n * 0.7) cut = cut.slice(0, lastSpace);
-  return { text: cut + '…', truncated: true };
-}
-
 function buildColorExpression(propName = 'osm_type') {
   const expr = ['match', ['get', propName]];
   for (const [type, color] of Object.entries(COLOR_BY_TYPE)) {
@@ -94,6 +205,19 @@ function buildColorExpression(propName = 'osm_type') {
 }
 
 async function loadData() {
+  // Try the gzipped artifact first. The deploy pipeline (build-site.sh) ships
+  // nyc_final.json.gz (~10MB) instead of the raw 120MB .json because GitHub
+  // refuses files over 100MB. Locally the .gz may not exist; fall back to
+  // the raw .json so dev doesn't need to rebuild dist/ on every change.
+  if (typeof DecompressionStream !== 'undefined') {
+    try {
+      const gzRes = await fetch(DATA_URL + '.gz');
+      if (gzRes.ok && gzRes.body) {
+        const decompressed = gzRes.body.pipeThrough(new DecompressionStream('gzip'));
+        return await new Response(decompressed).json();
+      }
+    } catch (e) { /* fall through to plain fetch */ }
+  }
   const res = await fetch(DATA_URL);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
@@ -154,29 +278,6 @@ function renderAtmosphere(atmosphere) {
   return '<div class="atmosphere">' + pills.join('') + '</div>';
 }
 
-function renderReviews(reviews) {
-  if (!Array.isArray(reviews) || !reviews.length) return '';
-  const items = [];
-  for (const r of reviews.slice(0, 3)) {
-    if (!r || !r.text) continue;
-    const { text, truncated } = truncateText(r.text, REVIEW_TRUNCATE);
-    const author = r.author
-      ? '<div class="review-author">— ' + escapeHtml(r.author) + '</div>'
-      : '';
-    items.push(
-      '<div class="review' + (truncated ? ' is-truncated' : '') + '">' +
-      '<div class="review-text">' + escapeHtml(text) + '</div>' +
-      author +
-      '</div>'
-    );
-  }
-  if (!items.length) return '';
-  return (
-    '<div class="section-title">Reviews</div>' +
-    '<div class="reviews">' + items.join('') + '</div>'
-  );
-}
-
 function renderKindred(similarityIds) {
   if (!Array.isArray(similarityIds) || !similarityIds.length) return '';
   const cards = [];
@@ -191,8 +292,20 @@ function renderKindred(similarityIds) {
     );
   }
   if (!cards.length) return '';
+  // The toggle's is-active class is set inline so a re-render of the
+  // sidebar (e.g. after clicking a kindred card to navigate) reflects the
+  // current showSecondTier state immediately, before toggleSecondTier()
+  // would otherwise sync it on next interaction.
+  const toggleActive = showSecondTier ? ' is-active' : '';
   return (
-    '<div class="section-title">Kindred Places</div>' +
+    '<div class="kindred-header">' +
+      '<div class="section-title">Kindred Places</div>' +
+      '<button id="second-tier-toggle" type="button" class="second-tier-toggle' + toggleActive + '" ' +
+        'aria-pressed="' + (showSecondTier ? 'true' : 'false') + '">' +
+        '<span class="second-tier-icon" aria-hidden="true">◎</span>' +
+        '<span class="second-tier-label">Web of connections</span>' +
+      '</button>' +
+    '</div>' +
     '<div class="kindred">' + cards.join('') + '</div>'
   );
 }
@@ -252,6 +365,62 @@ function interpolateColorRgb(colorA, colorB, t) {
   ];
 }
 
+// Layer-builder helpers — kept separate so renderArcs() can emit both tiers
+// together when both have data.
+function buildFirstTierLayers(lineData) {
+  return [
+    new deck.LineLayer({
+      id: 'kindred-arcs-glow',
+      data: lineData,
+      getSourcePosition: (d) => d.path[0],
+      getTargetPosition: (d) => d.path[1],
+      getColor: (d) => [d.color[0], d.color[1], d.color[2], 60],
+      getWidth: 6,
+      widthUnits: 'pixels',
+    }),
+    new deck.LineLayer({
+      id: 'kindred-arcs',
+      data: lineData,
+      getSourcePosition: (d) => d.path[0],
+      getTargetPosition: (d) => d.path[1],
+      getColor: (d) => d.color,
+      getWidth: 2,
+      widthUnits: 'pixels',
+    }),
+  ];
+}
+
+function buildSecondTierLayers(lineData) {
+  return [
+    new deck.LineLayer({
+      id: 'kindred-arcs-second-glow',
+      data: lineData,
+      getSourcePosition: (d) => d.path[0],
+      getTargetPosition: (d) => d.path[1],
+      getColor: (d) => [d.color[0], d.color[1], d.color[2], 40],
+      getWidth: 3,
+      widthUnits: 'pixels',
+    }),
+    new deck.LineLayer({
+      id: 'kindred-arcs-second',
+      data: lineData,
+      getSourcePosition: (d) => d.path[0],
+      getTargetPosition: (d) => d.path[1],
+      getColor: (d) => [d.color[0], d.color[1], d.color[2], 180],
+      getWidth: 1.5,
+      widthUnits: 'pixels',
+    }),
+  ];
+}
+
+function renderArcs() {
+  if (!deckInstance) return;
+  const layers = [];
+  if (firstTierLineData.length > 0) layers.push(...buildFirstTierLayers(firstTierLineData));
+  if (secondTierLineData.length > 0) layers.push(...buildSecondTierLayers(secondTierLineData));
+  deckInstance.setProps({ layers });
+}
+
 function drawKindredLines(placeId) {
   if (!deckInstance) return;
   const source = featuresById.get(placeId);
@@ -261,6 +430,9 @@ function drawKindredLines(placeId) {
     cancelAnimationFrame(arcAnimFrame);
     arcAnimFrame = null;
   }
+  // Starting a fresh first-tier draw — wipe any stale second-tier lines so
+  // they don't linger over the new selection.
+  clearSecondTierLines();
 
   const ids = Array.isArray(source.similarity_ids)
     ? source.similarity_ids.slice(0, TOP_KINDRED)
@@ -268,7 +440,7 @@ function drawKindredLines(placeId) {
 
   const sourceColor = hexToRgb(COLOR_BY_TYPE[source.osm_type] || COLOR_DEFAULT);
 
-  const segments = ids.map(id => {
+  const segments = ids.map((id) => {
     const dest = featuresById.get(id);
     if (!dest) return null;
     const destColor = hexToRgb(COLOR_BY_TYPE[dest.osm_type] || COLOR_DEFAULT);
@@ -281,16 +453,17 @@ function drawKindredLines(placeId) {
   }).filter(Boolean);
 
   if (segments.length === 0) {
-    deckInstance.setProps({ layers: [] });
+    firstTierLineData = [];
+    renderArcs();
     return;
   }
 
   const ARC_POINTS = 40;
   const ARC_HEIGHT = 0.5;
-  const DURATION = 1000;
+  const DURATION = 1500;
   const startTime = performance.now();
 
-  const arcPaths = segments.map(seg => ({
+  const arcPaths = segments.map((seg) => ({
     points: sampleArc(seg.from, seg.to, ARC_HEIGHT, ARC_POINTS),
     sourceColor: seg.sourceColor,
     targetColor: seg.targetColor,
@@ -301,7 +474,7 @@ function drawKindredLines(placeId) {
     const eased = 1 - Math.pow(1 - t, 2);
     syncDeckView();
     const lineData = [];
-    arcPaths.forEach(arc => {
+    arcPaths.forEach((arc) => {
       const visibleCount = t >= 1
         ? arc.points.length
         : Math.max(2, Math.floor(eased * ARC_POINTS));
@@ -312,36 +485,214 @@ function drawKindredLines(placeId) {
         lineData.push({ path: [visiblePoints[i], visiblePoints[i + 1]], color });
       }
     });
-    deckInstance.setProps({
-      layers: [
-        new deck.LineLayer({
-          id: 'kindred-arcs-glow',
-          data: lineData,
-          getSourcePosition: d => d.path[0],
-          getTargetPosition: d => d.path[1],
-          getColor: d => [d.color[0], d.color[1], d.color[2], 60],
-          getWidth: 6,
-          widthUnits: 'pixels',
-        }),
-        new deck.LineLayer({
-          id: 'kindred-arcs',
-          data: lineData,
-          getSourcePosition: d => d.path[0],
-          getTargetPosition: d => d.path[1],
-          getColor: d => d.color,
-          getWidth: 2,
-          widthUnits: 'pixels',
-        }),
-      ]
-    });
+    firstTierLineData = lineData;
+    renderArcs();
+
+    // Drive the connected-overlay dot's opacity + stroke from the same
+    // `eased` value the arc growth uses — they fade in over the same
+    // timeline the arc takes to reach them.
+    try {
+      map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity', [
+        'case',
+        ['boolean', ['feature-state', 'connected'], false], eased,
+        0,
+      ]);
+      map.setPaintProperty('places-circles-connected-overlay', 'circle-stroke-width', [
+        'case',
+        ['boolean', ['feature-state', 'connected'], false], eased * 1.5,
+        0,
+      ]);
+    } catch (e) { /* layer not ready or torn down */ }
+
     if (t < 1) {
       arcAnimFrame = requestAnimationFrame(frame);
     } else {
       arcAnimFrame = null;
+      // Restore the opacity transition so future fade-outs (closeSidebar,
+      // selecting a new place) animate via Mapbox instead of snapping. The
+      // case expression itself stays at the final eased=1 value, so when
+      // feature-state.connected flips to false the per-feature output
+      // changes from 1 → 0, which Mapbox interpolates over the new duration.
+      try {
+        map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity-transition', { duration: 400, delay: 0 });
+      } catch (e) {}
+      // Second-tier kicks in only after the first-tier draw completes.
+      if (showSecondTier && ids.length > 0) {
+        drawSecondTierLines(ids);
+      }
     }
   }
 
   arcAnimFrame = requestAnimationFrame(frame);
+}
+
+function resetSecondConnectedFeatureStates() {
+  if (!map || secondConnectedIds.size === 0) return;
+  for (const id of secondConnectedIds) {
+    map.setFeatureState({ source: 'places', id }, { second_connected: false });
+  }
+  secondConnectedIds.clear();
+}
+
+function drawSecondTierLines(firstTierIds) {
+  if (!deckInstance) return;
+  // Cancel any in-flight second-tier work — both the rAF (mid-animation)
+  // and the start-delay timeout (pre-animation). Either can be live when a
+  // new selection lands.
+  if (secondTierAnimFrame !== null) {
+    cancelAnimationFrame(secondTierAnimFrame);
+    secondTierAnimFrame = null;
+  }
+  if (secondTierDelayTimer !== null) {
+    clearTimeout(secondTierDelayTimer);
+    secondTierDelayTimer = null;
+  }
+  // Reset any feature-states left over from a prior second-tier draw so
+  // we don't accumulate `second_connected` flags across rapid retoggles.
+  resetSecondConnectedFeatureStates();
+
+  // Build the dest set: each first-tier place's similarity_ids, minus the
+  // originally selected place, minus the first-tier places, minus duplicates.
+  const exclude = new Set(firstTierIds);
+  if (selectedPlaceId) exclude.add(selectedPlaceId);
+
+  const seen = new Set();
+  const segments = [];
+  const destSourceIds = [];
+  for (const firstId of firstTierIds) {
+    const firstPlace = featuresById.get(firstId);
+    if (!firstPlace || !Array.isArray(firstPlace.coordinates)) continue;
+    if (!Array.isArray(firstPlace.similarity_ids)) continue;
+    const firstColor = hexToRgb(COLOR_BY_TYPE[firstPlace.osm_type] || COLOR_DEFAULT);
+    for (const secondId of firstPlace.similarity_ids.slice(0, TOP_KINDRED)) {
+      if (exclude.has(secondId) || seen.has(secondId)) continue;
+      seen.add(secondId);
+      const secondPlace = featuresById.get(secondId);
+      if (!secondPlace || !Array.isArray(secondPlace.coordinates)) continue;
+      const secondColor = hexToRgb(COLOR_BY_TYPE[secondPlace.osm_type] || COLOR_DEFAULT);
+      segments.push({
+        from: firstPlace.coordinates,
+        to: secondPlace.coordinates,
+        sourceColor: [...firstColor, 220],
+        targetColor: [...secondColor, 220],
+      });
+      // Collect dest source IDs — we'll flip feature-state inside the
+      // setTimeout below so the dot fade-in starts the same instant the
+      // arc animation does (rather than ~200ms earlier).
+      const secondSourceId = pidToSourceId.get(secondId);
+      if (secondSourceId != null) destSourceIds.push(secondSourceId);
+    }
+  }
+
+  if (segments.length === 0) return;
+
+  const ARC_POINTS = 40;
+  const ARC_HEIGHT = 0.4;
+  const DURATION = 1500;
+  const START_DELAY_MS = 50;
+
+  const arcPaths = segments.map((seg) => ({
+    points: sampleArc(seg.from, seg.to, ARC_HEIGHT, ARC_POINTS),
+    sourceColor: seg.sourceColor,
+    targetColor: seg.targetColor,
+  }));
+
+  secondTierDelayTimer = setTimeout(() => {
+    secondTierDelayTimer = null;
+    // Prep: disable the layer's opacity transition and zero out the case
+    // expression's target value BEFORE flipping feature-state. Otherwise
+    // Mapbox would either snap the dots in instantly (feature-state
+    // transitions are unreliable, same Mapbox quirk as the constellation
+    // and first-tier issues) or fight our per-frame setPaintProperty
+    // updates below.
+    try {
+      map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity-transition', { duration: 0, delay: 0 });
+      map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', [
+        'case',
+        ['boolean', ['feature-state', 'second_connected'], false], 0,
+        0,
+      ]);
+      map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', [
+        'case',
+        ['boolean', ['feature-state', 'second_connected'], false], 0,
+        0,
+      ]);
+    } catch (e) {}
+
+    for (const id of destSourceIds) {
+      map.setFeatureState({ source: 'places', id }, { second_connected: true });
+      secondConnectedIds.add(id);
+    }
+    const startTime = performance.now();
+    function frame(now) {
+      const t = Math.min(1, (now - startTime) / DURATION);
+      const eased = 1 - Math.pow(1 - t, 2);
+      syncDeckView();
+      const lineData = [];
+      arcPaths.forEach((arc) => {
+        const visibleCount = t >= 1
+          ? arc.points.length
+          : Math.max(2, Math.floor(eased * ARC_POINTS));
+        const visiblePoints = arc.points.slice(0, visibleCount);
+        for (let i = 0; i < visiblePoints.length - 1; i++) {
+          const segT = i / (ARC_POINTS - 1);
+          const color = interpolateColorRgb(arc.sourceColor, arc.targetColor, segT);
+          lineData.push({ path: [visiblePoints[i], visiblePoints[i + 1]], color });
+        }
+      });
+      secondTierLineData = lineData;
+      renderArcs();
+
+      // Drive the second-tier dot opacity + stroke from the same `eased`
+      // value the arc growth uses — dot fade completes the instant the
+      // arc tip reaches the dot.
+      try {
+        map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', [
+          'case',
+          ['boolean', ['feature-state', 'second_connected'], false], eased * 0.9,
+          0,
+        ]);
+        map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', [
+          'case',
+          ['boolean', ['feature-state', 'second_connected'], false], eased * 1.0,
+          0,
+        ]);
+      } catch (e) {}
+
+      if (t < 1) {
+        secondTierAnimFrame = requestAnimationFrame(frame);
+      } else {
+        secondTierAnimFrame = null;
+        // Restore a non-zero transition so fade-out (toggle off, close
+        // sidebar) animates instead of snapping. The case expression
+        // already holds the final eased=1 value, so when feature-state
+        // flips false, per-feature opacity goes from 0.9 → 0 over 400ms.
+        try {
+          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity-transition', { duration: 400, delay: 0 });
+        } catch (e) {}
+      }
+    }
+    secondTierAnimFrame = requestAnimationFrame(frame);
+  }, START_DELAY_MS);
+}
+
+function clearSecondTierLines() {
+  if (secondTierAnimFrame !== null) {
+    cancelAnimationFrame(secondTierAnimFrame);
+    secondTierAnimFrame = null;
+  }
+  // Also cancel the pre-animation start-delay — without this, a close/select
+  // during the 200ms gap would let the queued setTimeout fire and start a
+  // fresh rAF against captured (now stale) arcPaths.
+  if (secondTierDelayTimer !== null) {
+    clearTimeout(secondTierDelayTimer);
+    secondTierDelayTimer = null;
+  }
+  // Drop the dot highlights too — both the arc layer and the dot overlay
+  // come from the same toggle, so they should clear together.
+  resetSecondConnectedFeatureStates();
+  secondTierLineData = [];
+  renderArcs();
 }
 
 function clearKindredLines() {
@@ -349,8 +700,28 @@ function clearKindredLines() {
     cancelAnimationFrame(arcAnimFrame);
     arcAnimFrame = null;
   }
-  if (deckInstance) deckInstance.setProps({ layers: [] });
+  firstTierLineData = [];
+  // clearSecondTierLines() also calls renderArcs(), which now sees both
+  // tier arrays empty and pushes setProps({ layers: [] }).
+  clearSecondTierLines();
 }
+
+function toggleSecondTier() {
+  showSecondTier = !showSecondTier;
+  const btn = document.getElementById('second-tier-toggle');
+  if (btn) btn.classList.toggle('is-active', showSecondTier);
+
+  if (!showSecondTier) {
+    clearSecondTierLines();
+    return;
+  }
+  // Turning on — only act if there's an active selection to draw against.
+  if (!selectedPlaceId) return;
+  const place = featuresById.get(selectedPlaceId);
+  if (!place || !Array.isArray(place.similarity_ids)) return;
+  drawSecondTierLines(place.similarity_ids.slice(0, TOP_KINDRED));
+}
+window.toggleSecondTier = toggleSecondTier;
 
 // Constellation pulse animation moved to narrative.js so each reveal group
 // can have its own start time — gives the twinkling effect instead of every
@@ -364,7 +735,66 @@ function applyResponsiveLineVisibility() {
   }
 }
 
+// Animate places-circles-main back from SELECTION_OPACITY_EXPR's dimmed
+// default (0.2 currently) to DEFAULT_OPACITY_EXPR's full opacity (0.9 for
+// tier 1/2, 0.45 for tier 3). The Mapbox transition swap is unreliable
+// when the expression structure changes simultaneously with feature-state
+// resets — it can leave per-feature opacity stuck on intermediate values.
+// Driving the case expression's default branches per frame guarantees the
+// final state is reached.
+function unfadeMain() {
+  if (unfadeMainAnimFrame !== null) {
+    cancelAnimationFrame(unfadeMainAnimFrame);
+    unfadeMainAnimFrame = null;
+  }
+  if (!map) return;
+  try {
+    // Stop Mapbox from competing with our per-frame snaps.
+    map.setPaintProperty('places-circles-main', 'circle-opacity-transition', { duration: 0, delay: 0 });
+  } catch (e) {}
+
+  // Drive a LITERAL opacity value per frame instead of a case expression.
+  // With 14k features, every per-frame `setPaintProperty(case-expr)` was
+  // triggering a full re-evaluation across the layer and dragging the rAF
+  // down to 3–5 fps — visually the animation took 5–10 seconds. Mapbox
+  // applies a literal opacity as a single uniform update, no per-feature
+  // work, so this stays at 60fps even on the full NYC dataset.
+  const FROM = 0.2;   // SELECTION_OPACITY_EXPR's dimmed default
+  const TO = 0.9;     // DEFAULT_OPACITY_EXPR's tier-1/2 value
+  const DURATION = 300;
+  const startTime = performance.now();
+
+  function step(now) {
+    const t = Math.min(1, (now - startTime) / DURATION);
+    const eased = 1 - Math.pow(1 - t, 2);
+    const current = FROM + (TO - FROM) * eased;
+    try {
+      map.setPaintProperty('places-circles-main', 'circle-opacity', current);
+    } catch (e) {}
+    if (t < 1) {
+      unfadeMainAnimFrame = requestAnimationFrame(step);
+    } else {
+      unfadeMainAnimFrame = null;
+      // Settle on DEFAULT_OPACITY_EXPR so tier 3 returns to its dimmer
+      // 0.45 (only ~1 feature in the dataset, so the brief overshoot to
+      // 0.9 during the animation is imperceptible). Also restore a non-
+      // zero transition for setSelected's next fade-into-selection.
+      try {
+        map.setPaintProperty('places-circles-main', 'circle-opacity', DEFAULT_OPACITY_EXPR);
+        map.setPaintProperty('places-circles-main', 'circle-opacity-transition', { duration: 300, delay: 0 });
+      } catch (e) {}
+    }
+  }
+  unfadeMainAnimFrame = requestAnimationFrame(step);
+}
+
 function setSelected(placeId) {
+  // Cancel any in-flight unfade — selecting a new place mid-unfade would
+  // otherwise have the rAF clobber our SELECTION_OPACITY_EXPR setup below.
+  if (unfadeMainAnimFrame !== null) {
+    cancelAnimationFrame(unfadeMainAnimFrame);
+    unfadeMainAnimFrame = null;
+  }
   if (selectedId !== null) {
     map.setFeatureState({ source: 'places', id: selectedId }, { selected: false });
     selectedId = null;
@@ -379,6 +809,7 @@ function setSelected(placeId) {
   if (sourceId != null) {
     map.setFeatureState({ source: 'places', id: sourceId }, { selected: true });
     selectedId = sourceId;
+    selectedPlaceId = placeId;
   }
 
   if (place && Array.isArray(place.similarity_ids)) {
@@ -388,6 +819,26 @@ function setSelected(placeId) {
       map.setFeatureState({ source: 'places', id: kSourceId }, { connected: true });
       connectedIds.add(kSourceId);
     }
+  }
+
+  // Suppress the instant pop: flipping feature-state.connected would
+  // otherwise snap the connected-overlay dots to full opacity (Mapbox's
+  // transition system doesn't actually animate per-feature value changes
+  // driven by feature-state expressions — known limitation). We zero the
+  // case expression's target value and disable transitions; drawKindredLines's
+  // rAF will drive opacity/stroke per frame, in sync with the arc growth.
+  if (map.getLayer('places-circles-connected-overlay')) {
+    map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity-transition', { duration: 0, delay: 0 });
+    map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity', [
+      'case',
+      ['boolean', ['feature-state', 'connected'], false], 0,
+      0,
+    ]);
+    map.setPaintProperty('places-circles-connected-overlay', 'circle-stroke-width', [
+      'case',
+      ['boolean', ['feature-state', 'connected'], false], 0,
+      0,
+    ]);
   }
 
   map.setPaintProperty('places-circles-main', 'circle-opacity', SELECTION_OPACITY_EXPR);
@@ -424,7 +875,6 @@ function openSidebar(placeId) {
   }
 
   parts.push(renderAtmosphere(place.atmosphere));
-  parts.push(renderReviews(place.reviews));
   parts.push(renderKindred(place.similarity_ids));
 
   const content = document.getElementById('sidebar-content');
@@ -440,12 +890,20 @@ function openSidebar(placeId) {
     map.easeTo({ padding: { right: 440 }, duration: 250 });
   }
 
+  // Wire the second-tier toggle that renderKindred just injected. The
+  // button is re-created on every openSidebar call (innerHTML replace), so
+  // the listener has to be re-attached each time.
+  const tierBtn = content.querySelector('#second-tier-toggle');
+  if (tierBtn) {
+    tierBtn.addEventListener('click', toggleSecondTier);
+  }
+
   content.querySelectorAll('.kindred-card').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-id');
       const target = featuresById.get(id);
       if (target && Array.isArray(target.coordinates)) {
-        map.flyTo({ center: target.coordinates, zoom: 16, pitch: 40, duration: 1800 });
+        map.flyTo({ center: target.coordinates, zoom: 16, pitch: 65, duration: 1800 });
       }
       openSidebar(id);
     });
@@ -461,13 +919,23 @@ function closeSidebar() {
     map.setFeatureState({ source: 'places', id: selectedId }, { selected: false });
     selectedId = null;
   }
+  selectedPlaceId = null;
   for (const id of connectedIds) {
     map.setFeatureState({ source: 'places', id }, { connected: false });
   }
   connectedIds.clear();
   clearKindredLines();
+  // Explicit second-tier clear, even though clearKindredLines() already
+  // cascades into it — defensive against future refactors. The toggle
+  // button itself is part of the sidebar markup, so it goes away when
+  // sidebar-content is re-rendered on the next openSidebar.
+  clearSecondTierLines();
   if (map) {
-    map.setPaintProperty('places-circles-main', 'circle-opacity', DEFAULT_OPACITY_EXPR);
+    // Drive the un-fade with an rAF (see unfadeMain). The previous
+    // transition-toggle approach worked in theory but Mapbox's render
+    // batching could apply the restored transition before the expression
+    // swap committed, leaving the dots stuck at the dimmed value.
+    unfadeMain();
     if (wasOpen) map.easeTo({ padding: { right: 0 }, duration: 250 });
   }
   map.setConfigProperty('basemap', 'transition', { duration: 300, delay: 0 });
@@ -479,13 +947,13 @@ async function initMap() {
   map = new mapboxgl.Map({
     container: 'map',
     style: 'mapbox://styles/jpiac/cmpekflsk003801s3f6ky6n8y',
-    center: [-73.95, 40.65],
-    zoom: 11,
+    center: [-73.98, 40.73],
+    zoom: 10,
     pitch: 40,
   });
   map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
 
-  showLoading('Loading Brooklyn...');
+  showLoading('Loading New York City...');
   let raw;
   try {
     raw = await loadData();
@@ -502,6 +970,11 @@ async function initMap() {
   window.drawKindredLines = drawKindredLines;
   window.clearKindredLines = clearKindredLines;
   window.CONSTELLATION_GROUP_COUNT = CONSTELLATION_GROUP_COUNT;
+  // narrative.js calls these to free the 20 constellation sub-layers +
+  // duplicate geojson source after the intro finishes (and to re-add them
+  // on replay). Removing them frees a sizable chunk of Mapbox tile state.
+  window.addConstellationLayers = addConstellationLayers;
+  window.removeConstellationLayers = removeConstellationLayers;
 
   await new Promise((resolve) => {
     if (map.isStyleLoaded()) resolve();
@@ -553,45 +1026,20 @@ async function initMap() {
   window.addEventListener('resize', applyResponsiveLineVisibility);
   // --- end deck.gl setup ---
 
+  // Stash the geojson for the constellation setup/teardown helpers (they
+  // re-use it on replay without going back to the network).
+  geojsonData = geojson;
+
   map.addSource('places', { type: 'geojson', data: geojson });
 
-  // Constellation layers — narrative only, start hidden. We add one layer per
-  // reveal_group so each can be revealed, pulsed, and faded out via LITERAL
-  // paint property values. Literals transition reliably via the layer's
-  // *-transition config; the previous feature-state / case-expression
-  // approach wasn't firing transitions consistently and stars snapped in.
-  map.addSource('constellation', { type: 'geojson', data: geojson });
-  const CONSTELLATION_TYPES = ['cafe', 'bar', 'pub', 'library', 'community_centre',
-    'social_facility', 'hackerspace', 'social_club'];
-  const CONSTELLATION_COLOR_EXPR = [
-    'interpolate', ['linear'],
-    ['get', 'reveal_group'],
-    0,  '#ffffff',
-    5,  '#fff9c4',
-    10, '#ffe066',
-    15, '#fff5a0',
-    19, '#ffffff',
-  ];
-  for (let g = 0; g < CONSTELLATION_GROUP_COUNT; g++) {
-    map.addLayer({
-      id: `constellation-stars-${g}`,
-      type: 'circle',
-      source: 'constellation',
-      layout: { 'visibility': 'none' },
-      filter: ['all',
-        ['match', ['get', 'osm_type'], CONSTELLATION_TYPES, true, false],
-        ['==', ['get', 'reveal_group'], g],
-      ],
-      paint: {
-        'circle-radius': 2,
-        'circle-color': CONSTELLATION_COLOR_EXPR,
-        'circle-opacity': 0,
-        'circle-opacity-transition': { duration: 2000, delay: 0 },
-        'circle-blur': 1.2,
-        'circle-emissive-strength': 1,
-        'circle-stroke-width': 0,
-      },
-    });
+  // Add the constellation source/layers only if the narrative is going to
+  // play this session — return visitors don't need 20 hidden layers eating
+  // tile state and a duplicate geojson copy. narrative.js calls
+  // window.addConstellationLayers on replay to bring them back.
+  let narrativeSeen = false;
+  try { narrativeSeen = localStorage.getItem('narrative_seen') === 'true'; } catch (e) {}
+  if (!narrativeSeen) {
+    addConstellationLayers(map);
   }
 
   // Main interactive places layer
@@ -601,15 +1049,36 @@ async function initMap() {
     source: 'places',
     slot: 'top',
     filter: ['match', ['get', 'osm_type'],
-      ['cafe', 'bar', 'pub', 'library', 'community_centre',
-        'social_facility', 'hackerspace', 'social_club'], true, false],
+  ['cafe', 'bar', 'pub', 'library', 'community_centre',
+   'social_facility', 'hackerspace', 'social_club',
+   'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
+   'museum', 'gallery', 'park', 'garden', 'playground',
+   'sports_centre', 'fitness_centre', 'swimming_pool',
+   'books', 'records', 'hairdresser', 'beauty', 'tattoo',
+   'bakery', 'deli', 'laundry', 'coffee',
+   'place_of_worship',
+   'dance', 'amusement_arcade', 'bowling_alley',
+   'marketplace', 'memorial', 'monument', 'artwork',
+   'attraction', 'viewpoint'], true, false],
     paint: {
       'circle-color': buildColorExpression(),
       'circle-radius': [
         'interpolate', ['linear'],
-        ['coalesce', ['to-number', ['get', 'review_count']], 0],
-        0, 4,
-        1000, 9,
+        ['zoom'],
+        10,
+        [
+          'interpolate', ['linear'],
+          ['coalesce', ['to-number', ['get', 'review_count']], 0],
+          0, 2,
+          1000, 4,
+        ],
+        15,
+        [
+          'interpolate', ['linear'],
+          ['coalesce', ['to-number', ['get', 'review_count']], 0],
+          0, 4,
+          1000, 9,
+        ]
       ],
       'circle-opacity': DEFAULT_OPACITY_EXPR,
       'circle-emissive-strength': 1,
@@ -638,14 +1107,75 @@ async function initMap() {
     },
   });
 
+  // Second-tier kindred overlay — sits beneath the first-tier (connected)
+  // and selected overlays so first-tier dots always read as the strongest
+  // signal. Slightly smaller circles + thinner stroke than the first-tier
+  // overlay, per the spec.
+  map.addLayer({
+    id: 'places-circles-second-tier-overlay',
+    type: 'circle',
+    source: 'places',
+    filter: ['match', ['get', 'osm_type'],
+  ['cafe', 'bar', 'pub', 'library', 'community_centre',
+   'social_facility', 'hackerspace', 'social_club',
+   'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
+   'museum', 'gallery', 'park', 'garden', 'playground',
+   'sports_centre', 'fitness_centre', 'swimming_pool',
+   'books', 'records', 'hairdresser', 'beauty', 'tattoo',
+   'bakery', 'deli', 'laundry', 'coffee',
+   'place_of_worship',
+   'dance', 'amusement_arcade', 'bowling_alley',
+   'marketplace', 'memorial', 'monument', 'artwork',
+   'attraction', 'viewpoint'], true, false],
+    paint: {
+      'circle-color': buildColorExpression(),
+      'circle-radius': [
+        'interpolate', ['linear'],
+        ['coalesce', ['to-number', ['get', 'review_count']], 0],
+        0, 4,
+        1000, 8,
+      ],
+      'circle-emissive-strength': 1,
+      'circle-opacity': [
+        'case',
+        ['boolean', ['feature-state', 'second_connected'], false], 0.9,
+        0,
+      ],
+      // Matches the arc draw duration in drawSecondTierLines so dot
+      // fade-in tracks the arc's progress and both complete together.
+      'circle-opacity-transition': { duration: 1500, delay: 0 },
+      'circle-stroke-color': [
+        'case',
+        ['match', ['get', 'osm_type'],
+          ['community_centre', 'social_facility'], true, false],
+        'rgba(0,0,0,0.5)',
+        'rgba(255,255,255,0.85)',
+      ],
+      'circle-stroke-width': [
+        'case',
+        ['boolean', ['feature-state', 'second_connected'], false], 1,
+        0,
+      ],
+    },
+  });
+
   // Connected places overlay
   map.addLayer({
     id: 'places-circles-connected-overlay',
     type: 'circle',
     source: 'places',
     filter: ['match', ['get', 'osm_type'],
-      ['cafe', 'bar', 'pub', 'library', 'community_centre',
-        'social_facility', 'hackerspace', 'social_club'], true, false],
+  ['cafe', 'bar', 'pub', 'library', 'community_centre',
+   'social_facility', 'hackerspace', 'social_club',
+   'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
+   'museum', 'gallery', 'park', 'garden', 'playground',
+   'sports_centre', 'fitness_centre', 'swimming_pool',
+   'books', 'records', 'hairdresser', 'beauty', 'tattoo',
+   'bakery', 'deli', 'laundry', 'coffee',
+   'place_of_worship',
+   'dance', 'amusement_arcade', 'bowling_alley',
+   'marketplace', 'memorial', 'monument', 'artwork',
+   'attraction', 'viewpoint'], true, false],
     paint: {
       'circle-color': buildColorExpression(),
       'circle-radius': [
@@ -681,8 +1211,17 @@ async function initMap() {
     type: 'circle',
     source: 'places',
     filter: ['match', ['get', 'osm_type'],
-      ['cafe', 'bar', 'pub', 'library', 'community_centre',
-        'social_facility', 'hackerspace', 'social_club'], true, false],
+  ['cafe', 'bar', 'pub', 'library', 'community_centre',
+   'social_facility', 'hackerspace', 'social_club',
+   'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
+   'museum', 'gallery', 'park', 'garden', 'playground',
+   'sports_centre', 'fitness_centre', 'swimming_pool',
+   'books', 'records', 'hairdresser', 'beauty', 'tattoo',
+   'bakery', 'deli', 'laundry', 'coffee',
+   'place_of_worship',
+   'dance', 'amusement_arcade', 'bowling_alley',
+   'marketplace', 'memorial', 'monument', 'artwork',
+   'attraction', 'viewpoint'], true, false],
     paint: {
       'circle-color': buildColorExpression(),
       'circle-radius': [

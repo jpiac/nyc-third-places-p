@@ -65,8 +65,10 @@ body.narrative-active #narrative-overlay,
 }
 
 .narrative-text {
+  position: absolute;
+  width: 100%;
   max-width: 680px;
-  padding: 40px;
+  padding: 48px 56px;
   text-align: center;
   pointer-events: none;
   font-family: 'Playfair Display', Georgia, serif;
@@ -77,9 +79,19 @@ body.narrative-active #narrative-overlay,
   opacity: 0;
   transform: translateY(12px);
   transition: opacity 0.8s ease, transform 0.8s ease;
-  /* Critical: hide inactive steps so they don't stack */
-  position: absolute;
-  width: 100%;
+
+  /* Tapered vignette backdrop — no hard edges */
+  background: radial-gradient(
+    ellipse 85% 80% at 50% 50%,
+    rgba(0, 0, 0, 0.55) 0%,
+    rgba(0, 0, 0, 0.45) 10%,
+    rgba(0, 0, 0, 0.15) 30%,
+    rgba(0, 0, 0, 0) 70%
+  );
+  border-radius: 0;
+  border: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .narrative-text.is-active {

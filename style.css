@@ -4,7 +4,6 @@
   --text-muted: #6b6b6b;
   --accent: #E07A5F;
   --border: #e7e2d6;
-  --review-bg: #faf7f1;
   --editorial-bg: #f5f1ea;
   --font-display: 'Playfair Display', Georgia, serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -216,38 +215,6 @@ html, body {
   margin: 24px 0 12px;
 }
 
-/* Reviews */
-.reviews {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.review {
-  position: relative;
-  font-size: 14px;
-  line-height: 1.5;
-  padding: 12px 14px;
-  background: var(--review-bg);
-  border-radius: 6px;
-  overflow: hidden;
-}
-.review.is-truncated::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 28px;
-  background: linear-gradient(to bottom, transparent, var(--review-bg));
-  pointer-events: none;
-}
-.review-author {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 8px;
-  font-style: italic;
-}
-
 /* Kindred Places */
 .kindred {
   display: grid;
@@ -404,6 +371,56 @@ html, body {
 .mapboxgl-ctrl-bottom-right {
   bottom: 20px;
   right: 20px;
+}
+
+/* Kindred section header — keeps the section title and the second-tier
+   toggle on one row inside the sidebar. */
+.kindred-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 24px 0 12px;
+}
+.kindred-header .section-title {
+  margin: 0;
+}
+
+/* Second-tier kindred-web toggle — pill button that sits next to the
+   Kindred Places header. Reuses the same accent-on-active treatment as
+   the existing sidebar pills. */
+.second-tier-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  white-space: nowrap;
+}
+.second-tier-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.second-tier-toggle.is-active {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+}
+.second-tier-toggle.is-active:hover {
+  filter: brightness(0.92);
+}
+.second-tier-icon {
+  font-size: 13px;
+  line-height: 1;
 }
 
 /* Mobile */

@@ -390,6 +390,14 @@
         overlayEl.classList.remove('is-leaving');
         overlayEl.style.opacity = '';
       }
+      // Free the 20 constellation sub-layers + the duplicate geojson
+      // source. Big memory win for the rest of the session — Mapbox no
+      // longer holds tile state for the 14k-feature constellation source
+      // once the narrative is done. Skipped if the helper isn't exposed
+      // (older main.js builds).
+      if (typeof window.removeConstellationLayers === 'function' && map) {
+        try { window.removeConstellationLayers(map); } catch (e) {}
+      }
     }, 800);
   }
 
@@ -517,6 +525,11 @@
     currentStep = 0;
     setLightPreset('night');
     resetExplorationConfig(); // hide labels and roads for narrative
+    // Bring the constellation layers back — exitNarrative removed them to
+    // free Mapbox tile state. Idempotent: bails if already present.
+    if (typeof window.addConstellationLayers === 'function' && map) {
+      try { window.addConstellationLayers(map); } catch (e) {}
+    }
     initNarrative(map);
   }
 
