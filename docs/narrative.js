@@ -708,26 +708,30 @@
     }
 
     else if (n === 4) {
-      // Crossfade: constellation out, interactive base layer in. Hero
-      // place card appears as the camera flies to Strand.
       teardownConstellationInteraction(map);
-      try {
-        if (originalFilter != null) map.setFilter(PLACES_LAYER, originalFilter);
-        else map.setFilter(PLACES_LAYER, null);
-        map.setPaintProperty(PLACES_LAYER, 'circle-opacity-transition', { duration: 1500, delay: 0 });
-        map.setPaintProperty(PLACES_LAYER, 'circle-opacity', 0.9);
 
-        fadeOutConstellation();
-        setTimeout(() => hideConstellationLayer(), FADE_OUT_MS + 100);
-      } catch (e) {}
+      // Fade out constellation immediately
+      fadeOutConstellation();
+      setTimeout(() => hideConstellationLayer(), FADE_OUT_MS + 100);
 
+      // Fly to Strand first — dots appear after camera settles
       map.flyTo({
         center: STRAND_COORDS,
         zoom: 16,
         pitch: 45,
         bearing: -20,
-        duration: 3000,
+        duration: 5000,
       });
+
+      // After flyTo completes, fade in tier 1 dots
+      setTimeout(() => {
+        try {
+          map.setFilter(PLACES_LAYER, ['==', ['get', 'tier'], 1]);
+          map.setPaintProperty(PLACES_LAYER, 'circle-opacity-transition', { duration: 1500, delay: 0 });
+          map.setPaintProperty(PLACES_LAYER, 'circle-opacity', 0.9);
+        } catch(e) {}
+      }, 4800); // slightly after flyTo duration
+
       showHeroCard(STRAND_ID, STRAND_NAME);
     }
 
@@ -741,8 +745,8 @@
         center: [-73.975, 40.74],
         zoom: 13,
         pitch: INITIAL_PITCH,
-        bearing: 0,
-        duration: 2500,
+        bearing: 60,
+        duration: 5000,
       });
     }
 
@@ -758,9 +762,9 @@
       map.flyTo({
         center: TROPICANA_COORDS,
         zoom: 15,
-        pitch: 45,
-        bearing: 20,
-        duration: 3000,
+        pitch: 80,
+        bearing: 200,
+        duration: 5000,
       });
       showHeroCard(TROPICANA_ID, TROPICANA_NAME);
 
@@ -769,7 +773,7 @@
         if (typeof window.drawKindredLines === 'function') {
           window.drawKindredLines(TROPICANA_ID);
         }
-      }, 1500);
+      }, 3500);
 
      tropicanaSecondTierTimer = setTimeout(() => {
         if (typeof window.setSelected === 'function') {
@@ -778,7 +782,7 @@
         if (typeof window.toggleSecondTier === 'function') {
           window.toggleSecondTier();
         }
-      }, 3000);
+      }, 5000);
     }
 
     else if (n === 7) {
@@ -797,7 +801,7 @@
         zoom: 10.5,
         pitch: INITIAL_PITCH,
         bearing: 0,
-        duration: 2000,
+        duration: 5000,
       });
       setTimeout(() => {
         const cta = document.getElementById('narrative-cta');
@@ -805,7 +809,7 @@
           cta.style.opacity = '1';
           cta.style.pointerEvents = 'auto';
         }
-      }, 1500);
+      }, 3500);
     }
   }
 
@@ -836,13 +840,14 @@
       zoom: 11,
       pitch: INITIAL_PITCH,
       bearing: 0,
-      duration: 2500,
+      duration: 5000,
     });
 
     clearConstellationTimers();
     hideConstellationLayer();
 
     try {
+      // Restore full filter on exit
       if (originalFilter != null) map.setFilter(PLACES_LAYER, originalFilter);
       else map.setFilter(PLACES_LAYER, null);
       map.setPaintProperty(PLACES_LAYER, 'circle-opacity-transition', { duration: 300, delay: 0 });
