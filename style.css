@@ -5,10 +5,6 @@
   --accent: #E07A5F;
   --border: #e7e2d6;
   --editorial-bg: #f5f1ea;
-  /* Restored — used by the sparkline + future review-related UI. The
-     reviews block that originally referenced this got removed; the
-     sparkline brings it back. */
-  --review-bg: #faf7f1;
   --font-display: 'Playfair Display', Georgia, serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --transition: 250ms ease;
@@ -541,33 +537,100 @@ html, body {
 }
 .about-sources a:hover { text-decoration: underline; }
 
-/* Rating sparkline — sidebar viz showing rating-over-time for places
-   with 5+ rated, dated reviews. */
-.sparkline-wrap {
-  margin: 0 0 20px;
-  padding: 12px 14px;
-  background: var(--review-bg);
-  border-radius: 6px;
-}
-.sparkline-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 600;
-  color: var(--text-muted);
+/* Vibe chart — atmosphere icons + community identity tags. */
+.vibe-chart { margin-bottom: 24px; }
+.vibe-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   margin-bottom: 8px;
 }
-.sparkline-avg {
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-  color: var(--text);
-  margin-left: 6px;
+.vibe-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 48px;
+  padding: 6px 0;
 }
-.sparkline {
-  display: block;
-  width: 100%;
-  height: 40px;
+.vibe-item svg { display: block; }
+.vibe-item.is-false svg { opacity: 0.2; }
+.vibe-item-label {
+  font-size: 10px;
+  text-align: center;
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+.vibe-item.is-true .vibe-item-label { color: var(--text); }
+.vibe-item.is-null { display: none; }
+.vibe-community {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.vibe-community-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--editorial-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+/* Kindred type breakdown — colored dots + legend below the kindred cards. */
+.kindred-type-breakdown {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.kindred-type-dots {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.kindred-type-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  cursor: default;
+}
+.kindred-type-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.kindred-type-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.kindred-type-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Mobile bottom-sheet drag handle. Hidden on desktop; the @media block below
+   shows it on small screens. JS attaches touch listeners only when mobile. */
+.sidebar-drag-handle {
+  display: none;
+  width: 36px;
+  height: 4px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 2px;
+  margin: 12px auto 4px;
+  flex-shrink: 0;
+  cursor: grab;
 }
 
 /* Mobile */
@@ -577,7 +640,29 @@ html, body {
   }
   .app-title { font-size: 18px; }
   .app-subtitle { font-size: 12px; }
-  .sidebar { width: 100%; }
+  .sidebar {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 50vh;
+    max-width: 100%;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+    overflow-y: auto;
+  }
+  .sidebar.is-open {
+    transform: translateY(0);
+  }
+  .sidebar.is-expanded {
+    height: 85vh;
+  }
+  .sidebar-drag-handle {
+    display: block;
+  }
   .sidebar-inner { padding: 20px 20px 32px; }
   .place-name { font-size: 26px; }
   .place-soul { font-size: 16px; }

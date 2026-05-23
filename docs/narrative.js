@@ -3,20 +3,30 @@
 
   const LS_KEY = 'narrative_seen';
   const PLACES_LAYER = 'places-circles-main';
-  const INITIAL_CENTER = [-73.98, 40.73];
+  const INITIAL_CENTER = [-73.98, 40.7];
   const INITIAL_ZOOM = 10;
   const INITIAL_PITCH = 40;
-  // Hero places used in Beats 4–6. IDs match the place.id strings produced
-  // by 01_filter_osm.js (`osm_<osm_id>`). If the underlying data shifts and
-  // these IDs no longer resolve, the FALLBACK names render in the place
-  // card and the kindred draws are no-ops (drawKindredLines bails on
-  // unknown ids).
+  // Hero places used across Beats 4–8. IDs match the place.id strings
+  // produced by 01_filter_osm.js (`osm_<osm_id>`). If the underlying data
+  // shifts and these IDs no longer resolve, the FALLBACK names render in
+  // the right-side card and the arc draws become no-ops.
+  const ISLAND_COORDS = [-73.9954421, 40.7167915];
+  const ISLAND_ID = 'osm_12228581278';
+  const ISLAND_NAME = 'Island NYC';
   const STRAND_COORDS = [-73.9909401, 40.7332796];
   const STRAND_ID = 'osm_999934639';
   const STRAND_NAME = 'Strand Bookstore';
-  const TROPICANA_COORDS = [-73.8872699, 40.8283426];
+  const TROPICANA_COORDS = [-73.89881, 40.81426];
   const TROPICANA_ID = 'osm_5172757288';
   const TROPICANA_NAME = 'Tropicana';
+
+  // Star palette — used for ALL narrative arcs (first- and second-degree)
+  // throughout Beats 4–8. The colored type-palette is reserved for the
+  // post-CTA interactive map.
+  const STAR_FIRST_SRC = [255, 249, 196, 220];
+  const STAR_FIRST_DST = [255, 255, 255, 180];
+  const STAR_SECOND_SRC = [255, 224, 102, 100];
+  const STAR_SECOND_DST = [255, 245, 160, 60];
 
   // One Mapbox layer per reveal_group — created in main.js. We control each
   // sub-layer's opacity / radius / blur with literal values so paint-property
@@ -55,6 +65,36 @@
   // can cancel them if the user advances early.
   let tropicanaKindredTimer = null;
   let tropicanaSecondTierTimer = null;
+
+  // 9-beat narrative — right-side cards, web badge, and the four per-beat
+  // staggered timers. All cleared by exitNarrative.
+  let narrativePlaceCardEl = null;
+  let narrativeKindredCardEl = null;
+  let narrativeWebBadgeVisible = false;
+  let islandSecondTierTimer = null;
+  let strandKindredTimer = null;
+  // Beat-4 island first-tier draw timer (the 2800ms wait between flyTo
+  // start and arc start).
+  let islandArcTimer = null;
+  // Beat 7 Tropicana card-show timer + Beat 8 kindred-card and web-badge
+  // and second-tier sub-timers.
+  let tropicanaCardTimer = null;
+  let tropicanaKindredCardTimer = null;
+  let tropicanaWebBadgeTimer = null;
+  let strandKindredCardTimer = null;
+
+  // rAF handles for the narrative arc layers. drawNarrativeArcs uses
+  // 'narrative-arcs-glow' / 'narrative-arcs'; the second-tier function
+  // ADDS 'narrative-arcs-second-glow' / 'narrative-arcs-second' on top
+  // (rather than replacing).
+  let narrativeArcsAnimFrame = null;
+  let narrativeArcsSecondAnimFrame = null;
+  // Per-tier line data cached at module level so renderNarrativeArcs()
+  // can re-emit both tiers together — deck.gl's setProps replaces all
+  // layers, so we have to pass both sets every frame we want both
+  // visible.
+  let narrativeFirstLineData = [];
+  let narrativeSecondLineData = [];
 
   // --- Beat 3 constellation interaction state ---
   let constellationWebAnimFrame = null;
@@ -173,6 +213,10 @@
     if (now - lastPulseUpdate < PULSE_THROTTLE_MS) return;
     lastPulseUpdate = now;
 
+    // Base radius scales with zoom — same stops as the expression
+    const zoom = map.getZoom();
+    const baseRadius = 2 + Math.max(0, Math.min(1, (zoom - 10) / 5)) * 4; // 2 at z10, 6 at z15
+
     let anyActive = false;
     for (let g = 0; g < TOTAL_GROUPS; g++) {
       const startedAt = groupStartTimes[g];
@@ -180,7 +224,7 @@
       anyActive = true;
       const elapsed = (now - startedAt) / 1000;
       const phase = elapsed * PULSE_FREQUENCY_HZ;
-      const r = 2 + Math.sin(phase) * 1;
+      const r = baseRadius + Math.sin(phase) * (baseRadius * 0.4); // pulse amplitude scales with size
       const b = 0.9 + Math.sin(phase + 1) * 0.4;
       const id = constellationLayerId(g);
       try {
@@ -217,7 +261,7 @@
       try {
         map.setPaintProperty(id, 'circle-opacity-transition', { duration: 0, delay: 0 });
         map.setPaintProperty(id, 'circle-opacity', 0);
-        map.setPaintProperty(id, 'circle-radius', 2);
+        map.setPaintProperty(id, 'circle-radius', ['interpolate',['linear'],['zoom'],13,2,15,6],);
         map.setPaintProperty(id, 'circle-blur', 1.2);
         map.setLayoutProperty(id, 'visibility', 'none');
       } catch (e) {}
@@ -245,7 +289,7 @@
         map.setLayoutProperty(id, 'visibility', 'visible');
         map.setPaintProperty(id, 'circle-opacity-transition', { duration: 0, delay: 0 });
         map.setPaintProperty(id, 'circle-opacity', 0);
-        map.setPaintProperty(id, 'circle-radius', 2);
+        map.setPaintProperty(id, 'circle-radius', ['interpolate',['linear'],['zoom'],13,2,15,6],);
         map.setPaintProperty(id, 'circle-blur', 1.2);
       } catch (e) {}
     }
@@ -550,6 +594,354 @@
     constellationWebAnimFrame = requestAnimationFrame(firstFrame);
   }
 
+  // --- 9-beat narrative arc rendering ---
+  // Reuses sampleArcLocal / interpolateColorRgbLocal (defined above) with
+  // the star palette and dedicated deck.gl layer IDs:
+  //   First-tier:  narrative-arcs-glow + narrative-arcs
+  //   Second-tier: narrative-arcs-second-glow + narrative-arcs-second
+  // Both tiers can render simultaneously — drawNarrativeSecondTierArcs
+  // ADDS to the first-tier layers rather than replacing them.
+
+  function syncDeckForNarrative() {
+    if (!window.deckInstance || !map) return;
+    const center = map.getCenter();
+    const padding = map.getPadding();
+    window.deckInstance.setProps({
+      viewState: {
+        longitude: center.lng,
+        latitude: center.lat,
+        zoom: map.getZoom(),
+        pitch: map.getPitch(),
+        bearing: map.getBearing(),
+        padding: {
+          left: padding.left || 0,
+          right: padding.right || 0,
+          top: padding.top || 0,
+          bottom: padding.bottom || 0,
+        },
+      },
+    });
+  }
+
+  function renderNarrativeArcs() {
+    if (!window.deckInstance) return;
+    const layers = [];
+    if (narrativeFirstLineData.length > 0) {
+      layers.push(
+        new deck.LineLayer({
+          id: 'narrative-arcs-glow',
+          data: narrativeFirstLineData,
+          getSourcePosition: (d) => d.path[0],
+          getTargetPosition: (d) => d.path[1],
+          getColor: (d) => [d.color[0], d.color[1], d.color[2], 40],
+          getWidth: 4,
+          widthUnits: 'pixels',
+        }),
+        new deck.LineLayer({
+          id: 'narrative-arcs',
+          data: narrativeFirstLineData,
+          getSourcePosition: (d) => d.path[0],
+          getTargetPosition: (d) => d.path[1],
+          getColor: (d) => d.color,
+          getWidth: 1.5,
+          widthUnits: 'pixels',
+        }),
+      );
+    }
+    if (narrativeSecondLineData.length > 0) {
+      layers.push(
+        new deck.LineLayer({
+          id: 'narrative-arcs-second-glow',
+          data: narrativeSecondLineData,
+          getSourcePosition: (d) => d.path[0],
+          getTargetPosition: (d) => d.path[1],
+          getColor: (d) => [d.color[0], d.color[1], d.color[2], 60],
+          getWidth: 2,
+          widthUnits: 'pixels',
+        }),
+        new deck.LineLayer({
+          id: 'narrative-arcs-second',
+          data: narrativeSecondLineData,
+          getSourcePosition: (d) => d.path[0],
+          getTargetPosition: (d) => d.path[1],
+          getColor: (d) => d.color,
+          getWidth: 1,
+          widthUnits: 'pixels',
+        }),
+      );
+    }
+    window.deckInstance.setProps({ layers });
+  }
+
+  function drawNarrativeArcs(placeId, onComplete) {
+    if (!window.deckInstance) {
+      if (typeof onComplete === 'function') onComplete();
+      return;
+    }
+    const fb = window.featuresById;
+    const source = fb && fb.get(placeId);
+    if (!source || !Array.isArray(source.coordinates)) {
+      if (typeof onComplete === 'function') onComplete();
+      return;
+    }
+    if (narrativeArcsAnimFrame !== null) {
+      cancelAnimationFrame(narrativeArcsAnimFrame);
+      narrativeArcsAnimFrame = null;
+    }
+
+    const ids = Array.isArray(source.similarity_ids)
+      ? source.similarity_ids.slice(0, 8)
+      : [];
+    const segments = [];
+    for (const id of ids) {
+      const dest = fb.get(id);
+      if (!dest || !Array.isArray(dest.coordinates)) continue;
+      segments.push({ from: source.coordinates, to: dest.coordinates });
+    }
+    if (segments.length === 0) {
+      if (typeof onComplete === 'function') onComplete();
+      return;
+    }
+
+    const ARC_POINTS = 40;
+    const ARC_HEIGHT = 0.5;
+    const DURATION = 1200;
+    const arcPaths = segments.map((s) => ({
+      points: sampleArcLocal(s.from, s.to, ARC_HEIGHT, ARC_POINTS),
+    }));
+    const startTime = performance.now();
+
+    function frame(now) {
+      const t = Math.min(1, (now - startTime) / DURATION);
+      const eased = 1 - Math.pow(1 - t, 2);
+      syncDeckForNarrative();
+      const lineData = [];
+      arcPaths.forEach((arc) => {
+        const visibleCount = t >= 1
+          ? arc.points.length
+          : Math.max(2, Math.floor(eased * ARC_POINTS));
+        const visiblePoints = arc.points.slice(0, visibleCount);
+        for (let i = 0; i < visiblePoints.length - 1; i++) {
+          const segT = i / (ARC_POINTS - 1);
+          const color = interpolateColorRgbLocal(STAR_FIRST_SRC, STAR_FIRST_DST, segT);
+          lineData.push({ path: [visiblePoints[i], visiblePoints[i + 1]], color });
+        }
+      });
+      narrativeFirstLineData = lineData;
+      renderNarrativeArcs();
+      if (t < 1) {
+        narrativeArcsAnimFrame = requestAnimationFrame(frame);
+      } else {
+        narrativeArcsAnimFrame = null;
+        if (typeof onComplete === 'function') onComplete();
+      }
+    }
+    narrativeArcsAnimFrame = requestAnimationFrame(frame);
+  }
+
+  function drawNarrativeSecondTierArcs(placeId) {
+    if (!window.deckInstance) return;
+    const fb = window.featuresById;
+    const source = fb && fb.get(placeId);
+    if (!source || !Array.isArray(source.similarity_ids)) return;
+    if (narrativeArcsSecondAnimFrame !== null) {
+      cancelAnimationFrame(narrativeArcsSecondAnimFrame);
+      narrativeArcsSecondAnimFrame = null;
+    }
+
+    const firstIds = source.similarity_ids.slice(0, 8);
+    const exclude = new Set(firstIds);
+    exclude.add(placeId);
+    const seen = new Set();
+    const segments = [];
+    for (const firstId of firstIds) {
+      const firstPlace = fb.get(firstId);
+      if (!firstPlace || !Array.isArray(firstPlace.coordinates)) continue;
+      if (!Array.isArray(firstPlace.similarity_ids)) continue;
+      for (const secondId of firstPlace.similarity_ids.slice(0, 5)) {
+        if (exclude.has(secondId) || seen.has(secondId)) continue;
+        seen.add(secondId);
+        const secondPlace = fb.get(secondId);
+        if (!secondPlace || !Array.isArray(secondPlace.coordinates)) continue;
+        segments.push({ from: firstPlace.coordinates, to: secondPlace.coordinates });
+      }
+    }
+    if (segments.length === 0) return;
+
+    const ARC_POINTS = 40;
+    const ARC_HEIGHT = 0.5;
+    const DURATION = 1000;
+    const arcPaths = segments.map((s) => ({
+      points: sampleArcLocal(s.from, s.to, ARC_HEIGHT, ARC_POINTS),
+    }));
+    const startTime = performance.now();
+
+    function frame(now) {
+      const t = Math.min(1, (now - startTime) / DURATION);
+      const eased = 1 - Math.pow(1 - t, 2);
+      syncDeckForNarrative();
+      const lineData = [];
+      arcPaths.forEach((arc) => {
+        const visibleCount = t >= 1
+          ? arc.points.length
+          : Math.max(2, Math.floor(eased * ARC_POINTS));
+        const visiblePoints = arc.points.slice(0, visibleCount);
+        for (let i = 0; i < visiblePoints.length - 1; i++) {
+          const segT = i / (ARC_POINTS - 1);
+          const color = interpolateColorRgbLocal(STAR_SECOND_SRC, STAR_SECOND_DST, segT);
+          lineData.push({ path: [visiblePoints[i], visiblePoints[i + 1]], color });
+        }
+      });
+      narrativeSecondLineData = lineData;
+      renderNarrativeArcs();
+      if (t < 1) {
+        narrativeArcsSecondAnimFrame = requestAnimationFrame(frame);
+      } else {
+        narrativeArcsSecondAnimFrame = null;
+      }
+    }
+    narrativeArcsSecondAnimFrame = requestAnimationFrame(frame);
+  }
+
+  function clearNarrativeArcs() {
+    if (narrativeArcsAnimFrame !== null) {
+      cancelAnimationFrame(narrativeArcsAnimFrame);
+      narrativeArcsAnimFrame = null;
+    }
+    if (narrativeArcsSecondAnimFrame !== null) {
+      cancelAnimationFrame(narrativeArcsSecondAnimFrame);
+      narrativeArcsSecondAnimFrame = null;
+    }
+    narrativeFirstLineData = [];
+    narrativeSecondLineData = [];
+    if (window.deckInstance) {
+      try { window.deckInstance.setProps({ layers: [] }); } catch (e) {}
+    }
+  }
+
+  // --- Right-side cards ---
+  // Two stacked cards on the right edge of the viewport:
+  //   #narrative-right-card     — place name + soul summary
+  //   #narrative-kindred-card   — list of kindred places, with optional
+  //                                web-active badge in the header
+  // When the kindred card appears, the place card slides UP via
+  // .is-slid-up (CSS translateY) so the kindred card sits beneath it.
+
+  function lookupPlace(placeId) {
+    const fb = window.featuresById;
+    return (fb && fb.get(placeId)) || null;
+  }
+
+  function showNarrativePlaceCard(placeId, fallbackName) {
+    if (!narrativePlaceCardEl) {
+      narrativePlaceCardEl = document.createElement('div');
+      narrativePlaceCardEl.id = 'narrative-right-card';
+      narrativePlaceCardEl.innerHTML =
+        '<div class="narrative-place-name"></div>' +
+        '<div class="narrative-place-soul"></div>';
+      document.body.appendChild(narrativePlaceCardEl);
+    }
+    const place = lookupPlace(placeId);
+    narrativePlaceCardEl.querySelector('.narrative-place-name').textContent =
+      (place && place.name) || fallbackName;
+    narrativePlaceCardEl.querySelector('.narrative-place-soul').textContent =
+      (place && place.soul_summary) || '';
+    // Reset any prior slid-up state so a fresh show starts in the bottom
+    // position.
+    narrativePlaceCardEl.classList.remove('is-slid-up');
+    // Force layout before adding is-visible so the transition runs.
+    void narrativePlaceCardEl.offsetWidth;
+    narrativePlaceCardEl.classList.add('is-visible');
+  }
+
+  function slideUpNarrativePlaceCard() {
+    if (narrativePlaceCardEl) {
+      narrativePlaceCardEl.classList.add('is-slid-up');
+    }
+  }
+
+  function hideNarrativePlaceCard() {
+    if (!narrativePlaceCardEl) return;
+    narrativePlaceCardEl.classList.remove('is-visible');
+    // Remove from DOM after the fade-out so a subsequent show rebuilds
+    // cleanly with no slid-up class lingering.
+    const el = narrativePlaceCardEl;
+    narrativePlaceCardEl = null;
+    setTimeout(() => { try { el.remove(); } catch (e) {} }, 450);
+  }
+
+  function buildKindredItemMarkup(placeId) {
+    const place = lookupPlace(placeId);
+    if (!place) return '';
+    const colorByType = (window.COLOR_BY_TYPE || {});
+    const defaultColor = window.COLOR_DEFAULT || '#888888';
+    const color = colorByType[place.osm_type] || defaultColor;
+    const name = place.name || '(unnamed)';
+    // Minimal sanitization — names come from OSM and may include quotes;
+    // textContent on the resulting element would be safer, but innerHTML
+    // here lets us batch all rows in one assignment. Use a small escape.
+    const safeName = String(name)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    return (
+      '<div class="narrative-kindred-item">' +
+        '<span class="narrative-kindred-dot" style="background:' + color + '"></span>' +
+        '<span>' + safeName + '</span>' +
+      '</div>'
+    );
+  }
+
+  function showNarrativeKindredCard(placeId) {
+    if (!narrativeKindredCardEl) {
+      narrativeKindredCardEl = document.createElement('div');
+      narrativeKindredCardEl.id = 'narrative-kindred-card';
+      document.body.appendChild(narrativeKindredCardEl);
+    }
+    const place = lookupPlace(placeId);
+    const ids = (place && Array.isArray(place.similarity_ids))
+      ? place.similarity_ids.slice(0, 8)
+      : [];
+    const itemsHtml = ids.map(buildKindredItemMarkup).join('');
+    narrativeKindredCardEl.innerHTML =
+      '<div class="narrative-kindred-header">' +
+        '<span class="narrative-kindred-title">Kindred Places</span>' +
+        '<span class="narrative-web-badge">◎ Web active</span>' +
+      '</div>' +
+      itemsHtml;
+    narrativeWebBadgeVisible = false;
+    void narrativeKindredCardEl.offsetWidth;
+    narrativeKindredCardEl.classList.add('is-visible');
+  }
+
+  function showNarrativeWebBadge() {
+    if (!narrativeKindredCardEl) return;
+    const badge = narrativeKindredCardEl.querySelector('.narrative-web-badge');
+    if (!badge) return;
+    badge.classList.add('is-visible');
+    narrativeWebBadgeVisible = true;
+  }
+
+  function hideNarrativeKindredCard() {
+    if (!narrativeKindredCardEl) return;
+    narrativeKindredCardEl.classList.remove('is-visible');
+    const el = narrativeKindredCardEl;
+    narrativeKindredCardEl = null;
+    narrativeWebBadgeVisible = false;
+    setTimeout(() => { try { el.remove(); } catch (e) {} }, 550);
+  }
+
+  function clearAllNarrativeBeatTimers() {
+    if (islandArcTimer) { clearTimeout(islandArcTimer); islandArcTimer = null; }
+    if (islandSecondTierTimer) { clearTimeout(islandSecondTierTimer); islandSecondTierTimer = null; }
+    if (strandKindredTimer) { clearTimeout(strandKindredTimer); strandKindredTimer = null; }
+    if (strandKindredCardTimer) { clearTimeout(strandKindredCardTimer); strandKindredCardTimer = null; }
+    if (tropicanaCardTimer) { clearTimeout(tropicanaCardTimer); tropicanaCardTimer = null; }
+    if (tropicanaKindredTimer) { clearTimeout(tropicanaKindredTimer); tropicanaKindredTimer = null; }
+    if (tropicanaKindredCardTimer) { clearTimeout(tropicanaKindredCardTimer); tropicanaKindredCardTimer = null; }
+    if (tropicanaWebBadgeTimer) { clearTimeout(tropicanaWebBadgeTimer); tropicanaWebBadgeTimer = null; }
+    if (tropicanaSecondTierTimer) { clearTimeout(tropicanaSecondTierTimer); tropicanaSecondTierTimer = null; }
+  }
+
   function setupConstellationInteraction(mapInstance) {
     if (constellationInteractionSetup) return;
     if (!mapInstance) return;
@@ -662,12 +1054,17 @@
     currentStep = n;
     showStep(n);
 
-    if (n !== 3 && overlayEl) {
+    // The constellation interaction beat is gone in the 9-beat flow; this
+    // remains as a safety net in case any prior interactive state lingers.
+    if (overlayEl) {
       overlayEl.classList.remove('is-interactive');
       overlayEl.style.pointerEvents = '';
     }
 
     if (n === 1) {
+      // Hide the colored interactive places layer for the entire
+      // narrative. We don't restore it until the CTA is clicked (see
+      // exitNarrative).
       try {
         map.setFilter(PLACES_LAYER, ['==', ['get', 'id'], '__hidden__']);
         map.setPaintProperty(PLACES_LAYER, 'circle-opacity-transition', { duration: 0, delay: 0 });
@@ -683,38 +1080,38 @@
     }
 
     else if (n === 2) {
-      const c = map.getCenter();
-      map.easeTo({
-        center: [c.lng, c.lat - 0.03],
-        duration: 3000,
-      });
     }
 
     else if (n === 3) {
-      // Make overlay pointer-events passthrough so the map is interactable.
-      if (overlayEl) {
-        overlayEl.classList.add('is-interactive');
-        overlayEl.style.pointerEvents = 'none';
-      }
+      // No interaction this beat — just trigger the constellation reveal
+      // and let it play through. PLACES_LAYER stays hidden.
       constellationReveal();
-      if (constellationInteractionDelayTimer) clearTimeout(constellationInteractionDelayTimer);
-      constellationInteractionDelayTimer = setTimeout(() => {
-        setupConstellationInteraction(map);
-      }, CONSTELLATION_INTERACTION_DELAY_MS);
-      if (constellationHintTimer) clearTimeout(constellationHintTimer);
-      constellationHintTimer = setTimeout(() => {
-        showNarrativeHintForBeat3();
-      }, CONSTELLATION_HINT_DELAY_MS);
     }
 
     else if (n === 4) {
-      teardownConstellationInteraction(map);
+      // Constellation stays visible (no fadeOut). Camera flies to Island
+      // NYC; arcs (first + second tier in cascade) draw 2800ms after the
+      // flyTo begins so they appear while the camera is still settling.
+      clearAllNarrativeBeatTimers();
+      map.flyTo({
+        center: ISLAND_COORDS,
+        zoom: 11,
+        pitch: 45,
+        bearing: 10,
+        duration: 2500,
+      });
+      islandArcTimer = setTimeout(() => {
+        islandArcTimer = null;
+        drawNarrativeArcs(ISLAND_ID, () => {
+          drawNarrativeSecondTierArcs(ISLAND_ID);
+        });
+      }, 2800);
+    }
 
-      // Fade out constellation immediately
-      fadeOutConstellation();
-      setTimeout(() => hideConstellationLayer(), FADE_OUT_MS + 100);
-
-      // Fly to Strand first — dots appear after camera settles
+    else if (n === 5) {
+      // Wipe Beat 4's arcs, fly to Strand, show its card. No arcs yet.
+      clearNarrativeArcs();
+      clearAllNarrativeBeatTimers();
       map.flyTo({
         center: STRAND_COORDS,
         zoom: 16,
@@ -722,83 +1119,87 @@
         bearing: -20,
         duration: 5000,
       });
-
-      // After flyTo completes, fade in tier 1 dots
-      setTimeout(() => {
-        try {
-          map.setFilter(PLACES_LAYER, ['==', ['get', 'tier'], 1]);
-          map.setPaintProperty(PLACES_LAYER, 'circle-opacity-transition', { duration: 1500, delay: 0 });
-          map.setPaintProperty(PLACES_LAYER, 'circle-opacity', 0.9);
-        } catch(e) {}
-      }, 4800); // slightly after flyTo duration
-
-      showHeroCard(STRAND_ID, STRAND_NAME);
-    }
-
-    else if (n === 5) {
-      // Pull back and draw Strand's kindred — show that connections span
-      // neighborhoods, not just nearby blocks.
-      if (typeof window.drawKindredLines === 'function') {
-        window.drawKindredLines(STRAND_ID);
-      }
-      map.easeTo({
-        center: [-73.975, 40.74],
-        zoom: 13,
-        pitch: INITIAL_PITCH,
-        bearing: 60,
-        duration: 5000,
-      });
+      showNarrativePlaceCard(STRAND_ID, STRAND_NAME);
     }
 
     else if (n === 6) {
-      // Clear Strand's lines, fly up to Tropicana, draw its kindred
-      // (after 1.5s so the camera settles), then auto-toggle second-tier
-      // (after 3s) to reveal the wider web.
-      hidePlaceCard();
-      if (typeof window.clearKindredLines === 'function') window.clearKindredLines();
-      if (tropicanaKindredTimer) { clearTimeout(tropicanaKindredTimer); tropicanaKindredTimer = null; }
-      if (tropicanaSecondTierTimer) { clearTimeout(tropicanaSecondTierTimer); tropicanaSecondTierTimer = null; }
-
-      map.flyTo({
-        center: TROPICANA_COORDS,
-        zoom: 15,
-        pitch: 80,
-        bearing: 200,
-        duration: 5000,
+      // Slide the Strand card up, pull camera back, draw Strand's
+      // kindred, then surface the kindred list card below.
+      slideUpNarrativePlaceCard();
+      map.easeTo({
+        center: [-73.975, 40.74],
+        zoom: 12,
+        pitch: INITIAL_PITCH,
+        bearing: 60,
+        duration: 3500,
       });
-      showHeroCard(TROPICANA_ID, TROPICANA_NAME);
-
-      tropicanaKindredTimer = setTimeout(() => {
-        tropicanaKindredTimer = null;
-        if (typeof window.drawKindredLines === 'function') {
-          window.drawKindredLines(TROPICANA_ID);
-        }
-      }, 3500);
-
-     tropicanaSecondTierTimer = setTimeout(() => {
-        if (typeof window.setSelected === 'function') {
-          window.setSelected(TROPICANA_ID);  // sets selectedPlaceId so toggleSecondTier works
-        }
-        if (typeof window.toggleSecondTier === 'function') {
-          window.toggleSecondTier();
-        }
-      }, 5000);
+      drawNarrativeArcs(STRAND_ID, () => {});
+      if (strandKindredCardTimer) clearTimeout(strandKindredCardTimer);
+      strandKindredCardTimer = setTimeout(() => {
+        strandKindredCardTimer = null;
+        showNarrativeKindredCard(STRAND_ID);
+      }, 300);
     }
 
     else if (n === 7) {
-      // Finale: clear everything, pull back to the wide view, reveal CTA.
-      hidePlaceCard();
-      if (tropicanaKindredTimer) { clearTimeout(tropicanaKindredTimer); tropicanaKindredTimer = null; }
-      if (tropicanaSecondTierTimer) { clearTimeout(tropicanaSecondTierTimer); tropicanaSecondTierTimer = null; }
-      // Turn second-tier OFF if Beat 6 toggled it on, so the finale's
-      // wide-view doesn't keep arcs from the previous beat live.
-      if (typeof window.toggleSecondTier === 'function' && window.showSecondTier) {
-        try { window.toggleSecondTier(); } catch (e) {}
-      }
-      if (typeof window.clearKindredLines === 'function') window.clearKindredLines();
+      // Transition to Tropicana. Clean Strand state first.
+      clearNarrativeArcs();
+      hideNarrativeKindredCard();
+      hideNarrativePlaceCard();
+      clearAllNarrativeBeatTimers();
+      map.flyTo({
+        center: TROPICANA_COORDS,
+        zoom: 15,
+        pitch: 85,
+        bearing: 210,
+        duration: 3000,
+      });
+      tropicanaCardTimer = setTimeout(() => {
+        tropicanaCardTimer = null;
+        showNarrativePlaceCard(TROPICANA_ID, TROPICANA_NAME);
+      }, 500);
+    }
+
+    else if (n === 8) {
+      // Slide the Tropicana card up, draw its kindred, surface the
+      // kindred list card, then a beat later add the "web active" badge
+      // and draw the second-degree arcs.
+      map.flyTo({
+        center: [-73.92325, 40.76388],
+        zoom: 12,
+        pitch: 60,
+        bearing: 210,
+        duration: 5000,
+      });
+      slideUpNarrativePlaceCard();
+      drawNarrativeArcs(TROPICANA_ID, () => {});
+      if (tropicanaKindredCardTimer) clearTimeout(tropicanaKindredCardTimer);
+      tropicanaKindredCardTimer = setTimeout(() => {
+        tropicanaKindredCardTimer = null;
+        showNarrativeKindredCard(TROPICANA_ID);
+      }, 300);
+      if (tropicanaWebBadgeTimer) clearTimeout(tropicanaWebBadgeTimer);
+      tropicanaWebBadgeTimer = setTimeout(() => {
+        tropicanaWebBadgeTimer = null;
+        showNarrativeWebBadge();
+      }, 1800);
+      if (tropicanaSecondTierTimer) clearTimeout(tropicanaSecondTierTimer);
+      tropicanaSecondTierTimer = setTimeout(() => {
+        tropicanaSecondTierTimer = null;
+        drawNarrativeSecondTierArcs(TROPICANA_ID);
+      }, 2000);
+    }
+
+    else if (n === 9) {
+      // Finale: clear arcs + cards, pull camera back, reveal CTA. The
+      // constellation stays visible behind the wide view.
+      clearNarrativeArcs();
+      hideNarrativeKindredCard();
+      hideNarrativePlaceCard();
+      clearAllNarrativeBeatTimers();
       map.easeTo({
         center: INITIAL_CENTER,
-        zoom: 10.5,
+        zoom: 11,
         pitch: INITIAL_PITCH,
         bearing: 0,
         duration: 5000,
@@ -809,18 +1210,19 @@
           cta.style.opacity = '1';
           cta.style.pointerEvents = 'auto';
         }
-      }, 3500);
+      }, 5500);
     }
   }
 
   function exitNarrative() {
     safeSet(LS_KEY, 'true');
     teardownConstellationInteraction(map);
-    // Cancel Beat 6's staggered Tropicana timers and turn off second-tier
-    // if the auto-toggle had fired — otherwise the post-exit interactive
-    // map would inherit second-tier mode without an active selection.
-    if (tropicanaKindredTimer) { clearTimeout(tropicanaKindredTimer); tropicanaKindredTimer = null; }
-    if (tropicanaSecondTierTimer) { clearTimeout(tropicanaSecondTierTimer); tropicanaSecondTierTimer = null; }
+    // Cancel every narrative beat timer + the narrative arc rAFs + both
+    // right-side cards, before the rest of the cleanup runs.
+    clearAllNarrativeBeatTimers();
+    clearNarrativeArcs();
+    hideNarrativePlaceCard();
+    hideNarrativeKindredCard();
     if (typeof window.toggleSecondTier === 'function' && window.showSecondTier) {
       try { window.toggleSecondTier(); } catch (e) {}
     }
@@ -837,7 +1239,7 @@
 
     map.easeTo({
       center: INITIAL_CENTER,
-      zoom: 11,
+      zoom: 11.5,
       pitch: INITIAL_PITCH,
       bearing: 0,
       duration: 5000,
@@ -906,14 +1308,14 @@
       }
       // Don't advance during Beat 3 interactive mode
       if (overlayEl.classList.contains('is-interactive')) return;
-      if (currentStep < 7) goToStep(currentStep + 1);
+      if (currentStep < 9) goToStep(currentStep + 1);
     });
 
     document.addEventListener('keydown', (e) => {
       if (!isNarrativeActive()) return;
       if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
         e.preventDefault();
-        if (currentStep < 7) goToStep(currentStep + 1);
+        if (currentStep < 9) goToStep(currentStep + 1);
       }
     });
   }

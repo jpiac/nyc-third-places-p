@@ -324,24 +324,120 @@ function buildGeoJSON(raw) {
   return { type: 'FeatureCollection', features };
 }
 
-function renderSparkline(reviews, color) {
-  const W = 280, H = 40, PAD = 4;
-  const ratings = reviews.map((r) => r.rating);
-  const min = Math.min(...ratings);
-  const max = Math.max(...ratings);
-  const range = max - min || 1;
-  const pts = ratings.map((r, i) => {
-    const x = PAD + (i / (ratings.length - 1)) * (W - PAD * 2);
-    const y = PAD + (1 - (r - min) / range) * (H - PAD * 2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const avg = (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1);
+const VIBE_ICON_DEFS = {
+  outdoor_seating: { label: 'Outdoor', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.8 2c1 5 .5 10.5-6.8 12.4"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg>' },
+  live_music: { label: 'Live Music', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>' },
+  good_for_groups: { label: 'Groups', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
+  serves_coffee: { label: 'Coffee', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>' },
+  good_for_children: { label: 'Family', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' },
+  allows_dogs: { label: 'Dogs', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z"/></svg>' },
+  good_for_watching_sports: { label: 'Sports', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' },
+  serves_beer: { label: 'Beer', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 11h1a3 3 0 0 1 0 6h-1"/><path d="M9 12v6"/><path d="M13 12v6"/><path d="M5 8v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8"/><path d="M14 7.5c-1 0-1.44.5-3 .5s-2-.5-3-.5-1.72.5-2.5.5a2.5 2.5 0 0 1 0-5c.78 0 1.57.5 2.5.5C9.44 3.5 10 3 12 3s2.56.5 3.5.5c.94 0 1.72-.5 2.5-.5a2.5 2.5 0 0 1 0 5c-.78 0-1.5-.5-2-.5Z"/></svg>' },
+  serves_cocktails: { label: 'Cocktails', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22h8"/><path d="M12 11v11"/><path d="M19 3H5l7 8 7-8Z"/></svg>' },
+  serves_wine: { label: 'Wine', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22h8"/><path d="M7 10h10"/><path d="M12 15v7"/><path d="M12 15a5 5 0 0 0 5-5V3H7v7a5 5 0 0 0 5 5Z"/></svg>' },
+  reservable: { label: 'Reservable', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
+};
+
+const RAINBOW_SVG = '<svg width="18" height="12" viewBox="0 0 18 12" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="18" height="2" fill="#e40303"/><rect x="0" y="2" width="18" height="2" fill="#ff8c00"/><rect x="0" y="4" width="18" height="2" fill="#ffed00"/><rect x="0" y="6" width="18" height="2" fill="#008026"/><rect x="0" y="8" width="18" height="2" fill="#004dff"/><rect x="0" y="10" width="18" height="2" fill="#750787"/></svg>';
+const RAINBOW_SMALL_SVG = '<svg width="13" height="9" viewBox="0 0 18 12" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="18" height="2" fill="#e40303"/><rect x="0" y="2" width="18" height="2" fill="#ff8c00"/><rect x="0" y="4" width="18" height="2" fill="#ffed00"/><rect x="0" y="6" width="18" height="2" fill="#008026"/><rect x="0" y="8" width="18" height="2" fill="#004dff"/><rect x="0" y="10" width="18" height="2" fill="#750787"/></svg>';
+const RELIGION_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 9h4"/><path d="M12 7v5"/><path d="M14 22v-4a2 2 0 0 0-4 0v4"/><path d="M18 22V5.618a1 1 0 0 0-.553-.894l-4.553-2.277a2 2 0 0 0-1.788 0L6.553 4.724A1 1 0 0 0 6 5.618V22"/></svg>';
+const COMMUNITY_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/></svg>';
+
+function formatCommunityValue(s) {
+  return String(s).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function renderVibeChart(place) {
+  const atmosphere = place.atmosphere || {};
+  const community = place.community_tags || {};
+
+  const items = [];
+  for (const [key, def] of Object.entries(VIBE_ICON_DEFS)) {
+    const val = atmosphere[key];
+    if (val !== true && val !== false) continue;
+    const cls = val ? 'is-true' : 'is-false';
+    items.push(
+      '<div class="vibe-item ' + cls + '">' +
+        def.svg +
+        '<div class="vibe-item-label">' + escapeHtml(def.label) + '</div>' +
+      '</div>'
+    );
+  }
+
+  const communityTags = [];
+  if (community.lgbtq_primary === true) {
+    communityTags.push(
+      '<span class="vibe-community-tag">' + RAINBOW_SVG +
+      '<span>LGBTQ+ Primary</span></span>'
+    );
+  }
+  if (community.lgbtq_friendly === true && community.lgbtq_primary !== true) {
+    communityTags.push(
+      '<span class="vibe-community-tag">' + RAINBOW_SMALL_SVG +
+      '<span>LGBTQ+ Welcoming</span></span>'
+    );
+  }
+  if (isPresent(community.religion)) {
+    communityTags.push(
+      '<span class="vibe-community-tag">' + RELIGION_SVG +
+      '<span>' + escapeHtml(formatCommunityValue(community.religion)) + '</span></span>'
+    );
+  }
+  if (isPresent(community.for_community)) {
+    communityTags.push(
+      '<span class="vibe-community-tag">' + COMMUNITY_SVG +
+      '<span>' + escapeHtml(formatCommunityValue(community.for_community)) + '</span></span>'
+    );
+  }
+
+  if (items.length === 0 && communityTags.length === 0) return '';
+
   return (
-    '<div class="sparkline-wrap">' +
-    '<div class="sparkline-label">Rating over time <span class="sparkline-avg">avg ' + avg + '</span></div>' +
-    '<svg class="sparkline" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' +
-    '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.8"/>' +
-    '</svg>' +
+    '<div class="section-title">Vibe</div>' +
+    '<div class="vibe-chart">' +
+      '<div class="vibe-grid">' + items.join('') + '</div>' +
+      (communityTags.length
+        ? '<div class="vibe-community">' + communityTags.join('') + '</div>'
+        : '') +
+    '</div>'
+  );
+}
+
+function renderKindredTypeBreakdown(similarityIds) {
+  if (!Array.isArray(similarityIds) || !similarityIds.length) return '';
+
+  const places = [];
+  for (const id of similarityIds.slice(0, TOP_KINDRED)) {
+    const p = featuresById.get(id);
+    if (p) places.push(p);
+  }
+  if (!places.length) return '';
+
+  const dots = places.map((p) => {
+    const color = COLOR_BY_TYPE[p.osm_type] || COLOR_DEFAULT;
+    const label = formatOsmType(p.osm_type || '');
+    return '<span class="kindred-type-dot" style="background:' + color +
+      '" title="' + escapeHtml(label) + '"></span>';
+  }).join('');
+
+  const seen = new Map();
+  for (const p of places) {
+    if (!seen.has(p.osm_type)) {
+      seen.set(p.osm_type, formatOsmType(p.osm_type || ''));
+    }
+  }
+  const legend = Array.from(seen.entries()).map(([type, label]) => {
+    const color = COLOR_BY_TYPE[type] || COLOR_DEFAULT;
+    return '<span class="kindred-type-legend-item">' +
+      '<span class="kindred-type-legend-swatch" style="background:' + color + '"></span>' +
+      '<span>' + escapeHtml(label) + '</span>' +
+    '</span>';
+  }).join('');
+
+  return (
+    '<div class="kindred-type-breakdown">' +
+      '<div class="kindred-type-dots">' + dots + '</div>' +
+      '<div class="kindred-type-legend">' + legend + '</div>' +
     '</div>'
   );
 }
@@ -812,11 +908,115 @@ window.showSecondTier = showSecondTier;
 // can have its own start time — gives the twinkling effect instead of every
 // star pulsing in unison.
 
+// Bottom-sheet drag behavior for the sidebar on small screens.
+// Desktop (>640px): no-op — the sidebar slides in from the right via CSS only.
+// Mobile: drag-handle taps toggle expanded, vertical swipes either expand
+// (up >50px), close (down >100px), or snap back. During a downward drag we
+// drive transform per-frame so the sheet tracks the finger; we disable the
+// CSS transition for the duration so it doesn't ease against the live drag.
+// Idempotent — safe to re-call on resize. State + handlers are stashed on
+// the sidebar node so a re-init can cleanly detach before re-binding.
+function initMobileSheet() {
+  const sidebar = document.getElementById('sidebar');
+  const handle = document.getElementById('sidebar-drag-handle');
+  if (!sidebar || !handle) return;
+
+  if (sidebar._sheetHandlers) {
+    const h = sidebar._sheetHandlers;
+    handle.removeEventListener('touchstart', h.start);
+    handle.removeEventListener('touchmove', h.move);
+    handle.removeEventListener('touchend', h.end);
+    handle.removeEventListener('click', h.click);
+    sidebar._sheetHandlers = null;
+    // Restore any inline state that a prior drag may have left behind.
+    sidebar.style.transform = '';
+    sidebar.style.transition = '';
+  }
+
+  if (window.innerWidth > 640) return;
+
+  let startY = null;
+  let lastDelta = 0;
+  let dragging = false;
+  let suppressNextClick = false;
+
+  function onStart(e) {
+    if (!e.touches || !e.touches.length) return;
+    startY = e.touches[0].clientY;
+    lastDelta = 0;
+    dragging = true;
+    // Kill the slide transition for the duration of the drag so each
+    // touchmove paints exactly where the finger is. Restored on touchend.
+    sidebar.style.transition = 'none';
+  }
+
+  function onMove(e) {
+    if (!dragging || startY == null || !e.touches || !e.touches.length) return;
+    const dy = e.touches[0].clientY - startY;
+    lastDelta = dy;
+    // Upward swipe past the threshold while collapsed → expand. Done mid-drag
+    // (not on touchend) so the user sees the height jump while still pulling.
+    if (dy < -50 && !sidebar.classList.contains('is-expanded')) {
+      sidebar.classList.add('is-expanded');
+    }
+    // Only drag the sheet downward — translating up would pull it above the
+    // viewport top, which isn't meaningful for a bottom sheet.
+    if (dy > 0) {
+      sidebar.style.transform = 'translateY(' + dy + 'px)';
+    } else {
+      sidebar.style.transform = '';
+    }
+  }
+
+  function onEnd() {
+    if (!dragging) return;
+    dragging = false;
+    sidebar.style.transition = '';
+    sidebar.style.transform = '';
+    if (lastDelta > 100) {
+      closeSidebar();
+      suppressNextClick = true;
+    } else if (lastDelta < -50) {
+      sidebar.classList.add('is-expanded');
+      suppressNextClick = true;
+    }
+    startY = null;
+  }
+
+  function onClick() {
+    // A real drag (close/expand by swipe) suppresses the synthetic click that
+    // some browsers fire after touchend, so the tap-to-toggle below only runs
+    // for actual taps with no significant movement.
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      return;
+    }
+    sidebar.classList.toggle('is-expanded');
+  }
+
+  handle.addEventListener('touchstart', onStart, { passive: true });
+  handle.addEventListener('touchmove', onMove, { passive: true });
+  handle.addEventListener('touchend', onEnd);
+  handle.addEventListener('click', onClick);
+  sidebar._sheetHandlers = { start: onStart, move: onMove, end: onEnd, click: onClick };
+}
+
+// Re-init only when crossing the 640px breakpoint — every resize-pixel would
+// be wasteful since the handler set doesn't depend on exact width.
+let lastIsMobileForSheet = window.innerWidth <= 640;
+window.addEventListener('resize', () => {
+  const isMobile = window.innerWidth <= 640;
+  if (isMobile !== lastIsMobileForSheet) {
+    lastIsMobileForSheet = isMobile;
+    initMobileSheet();
+  }
+});
+
 function applyResponsiveLineVisibility() {
   if (!deckInstance) return;
   const canvas = deckInstance.canvas;
   if (canvas) {
-    canvas.style.display = window.innerWidth > 640 ? 'block' : 'none';
+    canvas.style.display = 'block'; // show on all screen sizes
   }
 }
 
@@ -923,29 +1123,18 @@ function openSidebar(placeId) {
   const parts = [];
   parts.push(
    '<div class="place-type-badge" style="background:' + badgeColor + '">' +
-escapeHtml(formatOsmType(place.osm_type || '')) + '</div>'
+  escapeHtml(formatOsmType(place.osm_type || '')) + '</div>'
   );
   parts.push('<h2 class="place-name">' + escapeHtml(place.name || '(unnamed)') + '</h2>');
 
   if (isPresent(place.soul_summary)) {
     parts.push('<p class="place-soul">' + escapeHtml(place.soul_summary) + '</p>');
   }
-
-  // Rating sparkline — only if 5+ reviews carry both a rating and a date.
-  // Pre-sorted ascending so the line reads left-to-right as oldest →
-  // newest.
-  const ratedReviews = (place.reviews || [])
-    .filter((r) => r && r.rating && r.publish_time)
-    .sort((a, b) => new Date(a.publish_time) - new Date(b.publish_time));
-  if (ratedReviews.length >= 5) {
-    parts.push(renderSparkline(ratedReviews, COLOR_BY_TYPE[place.osm_type] || COLOR_DEFAULT));
-  }
-
   if (isPresent(place.editorial_summary)) {
     parts.push('<p class="place-editorial">' + escapeHtml(place.editorial_summary) + '</p>');
   }
-
-  parts.push(renderAtmosphere(place.atmosphere));
+  parts.push(renderVibeChart(place));
+  parts.push(renderKindredTypeBreakdown(place.similarity_ids));
   parts.push(renderKindred(place.similarity_ids));
 
   const content = document.getElementById('sidebar-content');
@@ -954,6 +1143,11 @@ escapeHtml(formatOsmType(place.osm_type || '')) + '</div>'
 
   const sidebar = document.getElementById('sidebar');
   const wasOpen = sidebar.classList.contains('is-open');
+  // Every new place opens in the collapsed (50vh) state on mobile. Without
+  // this, navigating between kindred cards would carry the previous sheet's
+  // expanded height into the next one.
+  sidebar.classList.remove('is-expanded');
+  sidebar.style.transform = '';
   sidebar.classList.add('is-open');
   sidebar.setAttribute('aria-hidden', 'false');
 
@@ -974,7 +1168,7 @@ escapeHtml(formatOsmType(place.osm_type || '')) + '</div>'
       const id = btn.getAttribute('data-id');
       const target = featuresById.get(id);
       if (target && Array.isArray(target.coordinates)) {
-        map.flyTo({ center: target.coordinates, zoom: 16, pitch: 65, duration: 3500 });
+        map.flyTo({ center: target.coordinates, zoom: 16, pitch: 65, duration: 5000 });
       }
       openSidebar(id);
     });
@@ -984,6 +1178,10 @@ escapeHtml(formatOsmType(place.osm_type || '')) + '</div>'
 function closeSidebar() {
   const sidebar = document.getElementById('sidebar');
   const wasOpen = sidebar.classList.contains('is-open');
+  // Drop the expanded state BEFORE the close transform so the sheet animates
+  // out from its current height — the next openSidebar() starts collapsed.
+  sidebar.classList.remove('is-expanded');
+  sidebar.style.transform = '';
   sidebar.classList.remove('is-open');
   sidebar.setAttribute('aria-hidden', 'true');
   if (selectedId !== null) {
@@ -1018,7 +1216,7 @@ async function initMap() {
   map = new mapboxgl.Map({
     container: 'map',
     style: 'mapbox://styles/jpiac/cmpekflsk003801s3f6ky6n8y',
-    center: [-73.98, 40.73],
+    center: [-73.98, 40.7],
     zoom: 10,
     pitch: 40,
   });
@@ -1042,6 +1240,9 @@ async function initMap() {
   window.drawKindredLines = drawKindredLines;
   window.clearKindredLines = clearKindredLines;
   window.CONSTELLATION_GROUP_COUNT = CONSTELLATION_GROUP_COUNT;
+  // Color lookups for narrative.js's kindred card dot swatches.
+  window.COLOR_BY_TYPE = COLOR_BY_TYPE;
+  window.COLOR_DEFAULT = COLOR_DEFAULT;
   // narrative.js calls these to free the 20 constellation sub-layers +
   // duplicate geojson source after the intro finishes (and to re-add them
   // on replay). Removing them frees a sizable chunk of Mapbox tile state.
@@ -1334,6 +1535,8 @@ async function initMap() {
  if (typeof window.initNarrative === 'function') {
   window.initNarrative(map);
   }
+
+  initMobileSheet();
 
   function onCircleMouseEnter(e) {
   if (!e.features.length) return;

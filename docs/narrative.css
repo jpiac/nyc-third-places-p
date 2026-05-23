@@ -257,19 +257,117 @@ body.narrative-active .legend {
   opacity: 1;
 }
 
-/* Beat 3 hint text — fades in a few seconds after the constellation
-   reveal starts, telling the user the stars are interactive. */
-.narrative-hint {
+/* --- 9-beat right-side cards (Beats 4-8) ---
+   Two stacked cards on the right edge. The kindred card sits at the same
+   bottom offset as the place card; when both are present, the place card
+   gets .is-slid-up to translate it 180px upward so the kindred card
+   appears beneath it without overlap. */
+
+#narrative-right-card {
+  position: fixed;
+  right: 24px;
+  bottom: 120px;
+  max-width: 320px;
+  background: rgba(0, 0, 0, 0.75);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 101;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(120%);
+  transition: transform 0.4s ease, opacity 0.4s ease;
+}
+#narrative-right-card.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+#narrative-right-card.is-slid-up {
+  /* Apply alongside .is-visible — combines with translateX(0) into a
+     compound translate. Fixed -180px offset matches the typical kindred
+     card height (it'll vary slightly by content, but this looks clean
+     across the place name + 14px soul summary range). */
+  transform: translate(0, -300px);
+}
+
+#narrative-kindred-card {
+  position: fixed;
+  right: 24px;
+  bottom: 120px;
+  width: 320px;
+  background: rgba(0, 0, 0, 0.75);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 101;
+  pointer-events: none;
+  opacity: 0;
+  /* 200ms delay before fade so the place card has a beat to slide up
+     first — feels like the kindred card emerges from beneath it. */
+  transition: opacity 0.5s ease 0.2s;
+}
+#narrative-kindred-card.is-visible {
+  opacity: 1;
+}
+
+.narrative-place-name {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin-bottom: 8px;
+}
+.narrative-place-soul {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 14px;
-  font-style: italic;
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: 16px;
-  opacity: 0;
-  transition: opacity 0.6s ease;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.9);
 }
-.narrative-hint.is-visible {
+
+.narrative-kindred-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.narrative-kindred-title {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+}
+.narrative-web-badge {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  color: #ffe066;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.narrative-web-badge.is-visible {
   opacity: 1;
+}
+.narrative-kindred-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.narrative-kindred-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 @media (max-width: 640px) {
@@ -285,5 +383,18 @@ body.narrative-active .legend {
     right: 16px;
     bottom: 24px;
     max-width: none;
+  }
+  /* Beat-4+ right-side place card — full-width strip along the bottom
+     on phones, same pattern as #narrative-place-card. */
+  #narrative-right-card {
+    left: 16px;
+    right: 16px;
+    bottom: 80px;
+    max-width: none;
+  }
+  /* Kindred card is hidden entirely on small screens — there isn't room
+     for it stacked beneath the place card. */
+  #narrative-kindred-card {
+    display: none;
   }
 }
