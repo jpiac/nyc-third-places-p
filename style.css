@@ -646,7 +646,7 @@ html, body {
     right: 0;
     bottom: 0;
     width: 100%;
-    height: 50vh;
+    height: 40vh;
     max-width: 100%;
     transform: translateY(100%);
     transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);

@@ -1168,7 +1168,26 @@ function openSidebar(placeId) {
       const id = btn.getAttribute('data-id');
       const target = featuresById.get(id);
       if (target && Array.isArray(target.coordinates)) {
-        map.flyTo({ center: target.coordinates, zoom: 16, pitch: 65, duration: 5000 });
+        const flyOpts = {
+          center: target.coordinates,
+          zoom: 16,
+          pitch: 65,
+          duration: 5000,
+        };
+        // Mobile: the bottom sheet covers the lower ~50vh. Passing that as
+        // bottom padding biases Mapbox's effective center into the visible
+        // top half so the new place isn't hidden behind the sheet. Desktop
+        // already has padding: { right: 440 } set by openSidebar's easeTo,
+        // so we leave padding alone there and let that state persist.
+        if (window.innerWidth <= 640) {
+          flyOpts.padding = {
+            top: 0,
+            right: 0,
+            bottom: Math.round(window.innerHeight * 0.5),
+            left: 0,
+          };
+        }
+        map.flyTo(flyOpts);
       }
       openSidebar(id);
     });
