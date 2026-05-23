@@ -1183,7 +1183,7 @@ function openSidebar(placeId) {
           flyOpts.padding = {
             top: 0,
             right: 0,
-            bottom: Math.round(window.innerHeight * 0.5),
+            bottom: Math.round(window.innerHeight * 0.4),
             left: 0,
           };
         }
@@ -1231,6 +1231,11 @@ function closeSidebar() {
 }
 
 async function initMap() {
+  const bounds = [
+  [-74.259, 40.477], // Southwest coordinates (e.g., New York area)
+  [-73.700, 40.917]  // Northeast coordinates
+  ];
+
   mapboxgl.accessToken = MAPBOX_TOKEN;
   map = new mapboxgl.Map({
     container: 'map',
@@ -1238,6 +1243,8 @@ async function initMap() {
     center: [-73.98, 40.7],
     zoom: 10,
     pitch: 40,
+    minZoom: 10,
+    maxBounds: bounds,
   });
   map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
 
