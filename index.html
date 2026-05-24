@@ -155,17 +155,19 @@
         <h3>How Connections Work</h3>
         <p>Each place is connected to up to 8 &ldquo;kindred&rdquo; places. These are places that share a similar social character, regardless of type or location. Connections are computed using a weighted similarity score across four signals:</p>
         <ul>
-          <li><strong>Soul summary text</strong> (50%) &mdash; shared vocabulary in the place descriptions</li>
-          <li><strong>Atmosphere</strong> (30%) &mdash; matching boolean attributes like outdoor seating, live music, family-friendly</li>
-          <li><strong>Community identity</strong> (10%) &mdash; shared community tags like LGBTQ+, religious, or cultural identity</li>
-          <li><strong>Place type</strong> (10%) &mdash; same or related OSM type</li>
+          <li><strong>Soul summary text</strong> (40%) &mdash; shared vocabulary in the place descriptions</li>
+          <li><strong>Atmosphere</strong> (20%) &mdash; matching boolean attributes like outdoor seating, live music, family-friendly</li>
+          <li><strong>Community identity</strong> (20%) &mdash; shared community tags like LGBTQ+, religious, or cultural identity</li>
+          <li><strong>OSM Place type</strong> (10%) &mdash; same or related OSM type</li>
+          <li><strong>Google Place type</strong> (10%) &mdash; same or related Google Place type</li>
         </ul>
         <p>A diversity cap ensures no more than 5 of the 8 connections share the same place type, encouraging cross-category discovery.</p>
       </div>
 
       <div class="about-section">
         <h3>A Note on Completeness</h3>
-        <p>OpenStreetMap coverage varies across neighborhoods and place types. Some places may be missing, mislabeled, or have outdated information. Soul summaries reflect the reviews available at the time of generation and may not capture recent changes. Bias may be present in the Soul summaries and kindred connections based on input data and the weighting metrics. Given the scale of the project, individual narratives may not represent the full diversity of experiences within each neighborhood. Missing or incomplete community identity tags, such as Black-owned or Latinx-owned, may be the result of limited self-reported information on Google Business Profiles.</p>
+        <p>OpenStreetMap coverage varies across neighborhoods and place types. Some places may be missing, mislabeled, or have outdated information. Soul summaries reflect the reviews available at the time of generation and may not capture recent changes. Bias may be present in the Soul summaries and kindred connections based on input data and the weighting metrics.</p>
+        <p>Given the scale of the project, individual narratives may not represent the full diversity of experiences within each neighborhood. Missing or incomplete community identity tags, such as Black-owned or Latinx-owned, may be the result of limited self-reported information on Google Business Profiles.</p>
       </div>
 
       <div class="about-section about-sources">
