@@ -448,7 +448,7 @@
     const SECOND_DST = [255, 245, 160, 60];
 
     const ARC_POINTS = 40;
-    const ARC_HEIGHT = 0.5;
+    const ARC_HEIGHT = 0.3;
 
     const firstSegments = [];
     for (const id of firstIds) {
@@ -704,7 +704,7 @@
     }
 
     const ARC_POINTS = 40;
-    const ARC_HEIGHT = 0.5;
+    const ARC_HEIGHT = 0.3;
     const DURATION = 1200;
     const arcPaths = segments.map((s) => ({
       points: sampleArcLocal(s.from, s.to, ARC_HEIGHT, ARC_POINTS),
@@ -769,7 +769,7 @@
     if (segments.length === 0) return;
 
     const ARC_POINTS = 40;
-    const ARC_HEIGHT = 0.5;
+    const ARC_HEIGHT = 0.3;
     const DURATION = 1000;
     const arcPaths = segments.map((s) => ({
       points: sampleArcLocal(s.from, s.to, ARC_HEIGHT, ARC_POINTS),
@@ -1125,7 +1125,7 @@
     else if (n === 6) {
       // Slide the Strand card up, pull camera back, draw Strand's
       // kindred, then surface the kindred list card below.
-      slideUpNarrativePlaceCard();
+      if (window.innerWidth > 640) slideUpNarrativePlaceCard();
       map.easeTo({
         center: [-73.975, 40.74],
         zoom: 12,
@@ -1171,7 +1171,7 @@
         bearing: 210,
         duration: 5000,
       });
-      slideUpNarrativePlaceCard();
+      if (window.innerWidth > 640) slideUpNarrativePlaceCard();
       drawNarrativeArcs(TROPICANA_ID, () => {});
       if (tropicanaKindredCardTimer) clearTimeout(tropicanaKindredCardTimer);
       tropicanaKindredCardTimer = setTimeout(() => {

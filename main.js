@@ -338,19 +338,29 @@ const VIBE_ICON_DEFS = {
   reservable: { label: 'Reservable', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
 };
 
-const RAINBOW_SVG = '<svg width="18" height="12" viewBox="0 0 18 12" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="18" height="2" fill="#e40303"/><rect x="0" y="2" width="18" height="2" fill="#ff8c00"/><rect x="0" y="4" width="18" height="2" fill="#ffed00"/><rect x="0" y="6" width="18" height="2" fill="#008026"/><rect x="0" y="8" width="18" height="2" fill="#004dff"/><rect x="0" y="10" width="18" height="2" fill="#750787"/></svg>';
-const RAINBOW_SMALL_SVG = '<svg width="13" height="9" viewBox="0 0 18 12" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="18" height="2" fill="#e40303"/><rect x="0" y="2" width="18" height="2" fill="#ff8c00"/><rect x="0" y="4" width="18" height="2" fill="#ffed00"/><rect x="0" y="6" width="18" height="2" fill="#008026"/><rect x="0" y="8" width="18" height="2" fill="#004dff"/><rect x="0" y="10" width="18" height="2" fill="#750787"/></svg>';
-const RELIGION_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 9h4"/><path d="M12 7v5"/><path d="M14 22v-4a2 2 0 0 0-4 0v4"/><path d="M18 22V5.618a1 1 0 0 0-.553-.894l-4.553-2.277a2 2 0 0 0-1.788 0L6.553 4.724A1 1 0 0 0 6 5.618V22"/></svg>';
-const COMMUNITY_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/></svg>';
+// SVG icons used by the community pills in renderVibeChart. All are 18×18
+// viewBox, 14px rendered (12px for the smaller "Welcoming" rainbow). Icons
+// using stroke="currentColor" inherit color from the .vibe-community-tag CSS;
+// the rainbow flags ship their own fills.
+const RAINBOW_SVG = "<svg viewBox='0 0 18 18' width='14' height='14'><rect y='2' width='18' height='2.3' fill='#FF0018'/><rect y='4.6' width='18' height='2.3' fill='#FFA52C'/><rect y='6.9' width='18' height='2.3' fill='#FFFF41'/><rect y='9.2' width='18' height='2.3' fill='#008018'/><rect y='11.5' width='18' height='2.3' fill='#0000F9'/><rect y='13.8' width='18' height='2.3' fill='#86007D'/></svg>";
+const RAINBOW_SMALL_SVG = "<svg viewBox='0 0 18 18' width='12' height='12'><rect y='2' width='18' height='2.3' fill='#FF0018'/><rect y='4.6' width='18' height='2.3' fill='#FFA52C'/><rect y='6.9' width='18' height='2.3' fill='#FFFF41'/><rect y='9.2' width='18' height='2.3' fill='#008018'/><rect y='11.5' width='18' height='2.3' fill='#0000F9'/><rect y='13.8' width='18' height='2.3' fill='#86007D'/></svg>";
+const TRANS_SVG = "<svg viewBox='0 0 18 18' width='14' height='14' fill='none' stroke='currentColor' stroke-width='1.5'><circle cx='9' cy='7' r='4'/><line x1='9' y1='11' x2='9' y2='16'/><line x1='6' y1='13.5' x2='12' y2='13.5'/><line x1='6' y1='16' x2='12' y2='16'/></svg>";
+const WOMEN_SVG = "<svg viewBox='0 0 18 18' width='14' height='14' fill='none' stroke='currentColor' stroke-width='1.5'><circle cx='9' cy='7' r='5'/><line x1='9' y1='12' x2='9' y2='17'/><line x1='6' y1='15' x2='12' y2='15'/></svg>";
+const FIST_SVG = "<svg viewBox='0 0 18 18' width='14' height='14' fill='currentColor'><rect x='5' y='8' width='8' height='7' rx='1'/><rect x='5' y='5' width='2.5' height='5' rx='1'/><rect x='7.5' y='4' width='2.5' height='6' rx='1'/><rect x='10' y='5' width='2.5' height='5' rx='1'/></svg>";
+const WHEELCHAIR_SVG = "<svg viewBox='0 0 18 18' width='14' height='14' fill='currentColor'><circle cx='9' cy='2.5' r='1.8'/><path d='M7 6h2.5l1.5 4H14v1.5h-4l-1-3H7V6z'/><path d='M6 9.5C4.3 9.5 3 10.8 3 12.5S4.3 15.5 6 15.5s3-1.3 3-3'/></svg>";
+const PERSON_SVG = "<svg viewBox='0 0 18 18' width='14' height='14' fill='none' stroke='currentColor' stroke-width='1.5'><circle cx='9' cy='5' r='3'/><path d='M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6'/><line x1='9' y1='11' x2='9' y2='14'/><line x1='7' y1='16' x2='11' y2='16'/></svg>";
+const STAR_SVG = "<svg viewBox='0 0 18 18' width='14' height='14' fill='none' stroke='currentColor' stroke-width='1.5'><path d='M9 2l1.8 5.4H17l-4.9 3.6 1.8 5.4L9 13l-4.9 3.4 1.8-5.4L1 7.4h6.2z'/></svg>";
+const RELIGION_SVG = "<svg viewBox='0 0 18 18' width='14' height='14' fill='none' stroke='currentColor' stroke-width='1.5'><path d='M9 2v14M3 7h12'/></svg>";
 
-function formatCommunityValue(s) {
-  return String(s).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
+// Religion values we don't render as a pill — too generic or not real
+// communities for our purposes.
+const SKIPPED_RELIGIONS = new Set(['none', 'ethical', 'pagan', 'mue']);
 
 function renderVibeChart(place) {
   const atmosphere = place.atmosphere || {};
   const community = place.community_tags || {};
 
+  // Atmosphere grid — unchanged from before.
   const items = [];
   for (const [key, def] of Object.entries(VIBE_ICON_DEFS)) {
     const val = atmosphere[key];
@@ -364,30 +374,58 @@ function renderVibeChart(place) {
     );
   }
 
+  // Community pills — merged OSM + DataForSEO + FacDB signals.
+  const pill = (svg, label) =>
+    '<div class="vibe-community-tag">' + svg +
+    '<span>' + escapeHtml(label) + '</span></div>';
+
   const communityTags = [];
-  if (community.lgbtq_primary === true) {
-    communityTags.push(
-      '<span class="vibe-community-tag">' + RAINBOW_SVG +
-      '<span>LGBTQ+ Primary</span></span>'
-    );
+
+  const lgbtqOwned =
+    community.lgbtq_primary === true || community.dfs_lgbtq_owned === true;
+  const lgbtqWelcoming =
+    community.lgbtq_friendly === true || community.dfs_lgbtq_welcoming === true;
+  if (lgbtqOwned) communityTags.push(pill(RAINBOW_SVG, 'LGBTQ+ Owned'));
+  // Owned implies welcoming — suppress the welcoming pill if owned is set.
+  if (lgbtqWelcoming && !lgbtqOwned) {
+    communityTags.push(pill(RAINBOW_SMALL_SVG, 'LGBTQ+ Welcoming'));
   }
-  if (community.lgbtq_friendly === true && community.lgbtq_primary !== true) {
-    communityTags.push(
-      '<span class="vibe-community-tag">' + RAINBOW_SMALL_SVG +
-      '<span>LGBTQ+ Welcoming</span></span>'
-    );
+  if (community.dfs_transgender_safe === true) {
+    communityTags.push(pill(TRANS_SVG, 'Transgender Safe Space'));
   }
-  if (isPresent(community.religion)) {
-    communityTags.push(
-      '<span class="vibe-community-tag">' + RELIGION_SVG +
-      '<span>' + escapeHtml(formatCommunityValue(community.religion)) + '</span></span>'
-    );
+  if (community.dfs_women_owned === true) {
+    communityTags.push(pill(WOMEN_SVG, 'Women-Owned'));
   }
-  if (isPresent(community.for_community)) {
-    communityTags.push(
-      '<span class="vibe-community-tag">' + COMMUNITY_SVG +
-      '<span>' + escapeHtml(formatCommunityValue(community.for_community)) + '</span></span>'
-    );
+  if (community.dfs_asian_owned === true) {
+    communityTags.push(pill(FIST_SVG, 'Asian-Owned'));
+  }
+  if (community.dfs_indigenous_owned === true) {
+    communityTags.push(pill(FIST_SVG, 'Indigenous-Owned'));
+  }
+  if (community.dfs_wheelchair_accessible === true) {
+    communityTags.push(pill(WHEELCHAIR_SVG, 'Wheelchair Accessible'));
+  }
+
+  const forCommunity = String(community.for_community || '').toLowerCase();
+  const isSenior =
+    community.facdb_category === 'senior_center' ||
+    forCommunity.includes('senior');
+  const isYouth =
+    community.facdb_category === 'youth_services' ||
+    forCommunity.includes('child') ||
+    forCommunity.includes('juvenile');
+  if (isSenior) communityTags.push(pill(PERSON_SVG, 'Senior Center'));
+  if (isYouth) communityTags.push(pill(PERSON_SVG, 'Youth Services'));
+
+  if (community.operator_type === 'ngo' ||
+      community.operator_type === 'private_non_profit') {
+    communityTags.push(pill(STAR_SVG, 'Non-profit'));
+  }
+
+  const religion = String(community.religion || '').toLowerCase().trim();
+  if (religion && !SKIPPED_RELIGIONS.has(religion)) {
+    const label = religion.charAt(0).toUpperCase() + religion.slice(1);
+    communityTags.push(pill(RELIGION_SVG, label));
   }
 
   if (items.length === 0 && communityTags.length === 0) return '';
@@ -397,7 +435,8 @@ function renderVibeChart(place) {
     '<div class="vibe-chart">' +
       '<div class="vibe-grid">' + items.join('') + '</div>' +
       (communityTags.length
-        ? '<div class="vibe-community">' + communityTags.join('') + '</div>'
+        ? '<div class="section-title">Community</div>' +
+          '<div class="vibe-community">' + communityTags.join('') + '</div>'
         : '') +
     '</div>'
   );
@@ -635,7 +674,7 @@ function drawKindredLines(placeId) {
   }
 
   const ARC_POINTS = 40;
-  const ARC_HEIGHT = 0.5;
+  const ARC_HEIGHT = 0.3;
   const DURATION = 1500;
   const startTime = performance.now();
 
@@ -762,7 +801,7 @@ function drawSecondTierLines(firstTierIds) {
   if (segments.length === 0) return;
 
   const ARC_POINTS = 40;
-  const ARC_HEIGHT = 0.3;
+  const ARC_HEIGHT = 0.2;
   const DURATION = 1500;
   const START_DELAY_MS = 50;
 
