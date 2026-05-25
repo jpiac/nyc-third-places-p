@@ -31,6 +31,49 @@
   <header class="app-header">
     <div class="app-title">The Third Place</div>
     <div class="app-subtitle">New York City's Community Soul</div>
+    <div id="search-container" class="search-container">
+      <div class="search-input-row">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          id="search-input"
+          class="search-input"
+          placeholder="Search places..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="search-clear" id="search-clear" style="display:none">×</button>
+      </div>
+      <div class="search-filters" id="search-filters" style="display:none">
+        <select class="search-filter-select" id="search-type-filter">
+          <option value="">All types</option>
+        </select>
+        <select class="search-filter-select" id="search-borough-filter">
+          <option value="">All boroughs</option>
+          <option value="Manhattan">Manhattan</option>
+          <option value="Brooklyn">Brooklyn</option>
+          <option value="Queens">Queens</option>
+          <option value="Bronx">Bronx</option>
+          <option value="Staten Island">Staten Island</option>
+        </select>
+        <select class="search-filter-select" id="search-tag-filter">
+          <option value="">All tags</option>
+          <option value="dfs_lgbtq_welcoming">LGBTQ+ Welcoming</option>
+          <option value="dfs_lgbtq_owned">LGBTQ+ Owned</option>
+          <option value="dfs_women_owned">Women-Owned</option>
+          <option value="dfs_asian_owned">Asian-Owned</option>
+          <option value="dfs_wheelchair_accessible">Wheelchair Accessible</option>
+          <option value="dfs_transgender_safe">Transgender Safe Space</option>
+          <option value="facdb_senior">Senior Center</option>
+          <option value="facdb_youth">Youth Services</option>
+          <option value="facdb_library">Library</option>
+          <option value="lgbtq_primary">LGBTQ+ Primary</option>
+        </select>
+      </div>
+      <div class="search-results" id="search-results" style="display:none">
+        <div class="search-results-list" id="search-results-list"></div>
+      </div>
+    </div>
     <button id="replay-narrative" onclick="replayNarrative()">Replay Intro</button>
     <button id="about-btn" onclick="toggleAbout()">About</button>
     <button id="feedback-btn" onclick="openFeedbackModal()">Feedback</button>
@@ -38,28 +81,34 @@
 
   <div id="loading"></div>
 
-  <div class="legend">
-    <div class="legend-title">Place Type</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#E07A5F"></span>Café</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#3D405B"></span>Bar &amp; Pub</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#81B29A"></span>Library</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#F2CC8F"></span>Community Space</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#C084FC"></span>Arts &amp; Culture</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#818CF8"></span>Music &amp; Nightlife</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#34D399"></span>Museum &amp; Gallery</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#6EE7B7"></span>Parks &amp; Outdoors</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#F472B6"></span>Public Art</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#FCD34D"></span>Place of Worship</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#FB923C"></span>Shops &amp; Services</div>
-    <div class="legend-item"><span class="legend-dot" style="background:#888888"></span>Other</div>
+  <div id="legend" class="legend">
+    <button class="legend-toggle" id="legend-toggle" type="button">
+      <span class="legend-toggle-label">Legend</span>
+      <span class="legend-toggle-icon">▾</span>
+    </button>
+    <div class="legend-content" id="legend-content">
+      <div class="legend-title">Place Type</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#E07A5F"></span>Café</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#3D405B"></span>Bar &amp; Pub</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#81B29A"></span>Library</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#F2CC8F"></span>Community Space</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#C084FC"></span>Arts &amp; Culture</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#818CF8"></span>Music &amp; Nightlife</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#34D399"></span>Museum &amp; Gallery</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#6EE7B7"></span>Parks &amp; Outdoors</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#F472B6"></span>Public Art</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#FCD34D"></span>Place of Worship</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#FB923C"></span>Shops &amp; Services</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#888888"></span>Other</div>
 
-    <div class="legend-title legend-title-second">Size</div>
-    <div class="legend-size">
-      <span class="legend-size-dot" style="width:5px;height:5px"></span>
-      <span class="legend-size-dot" style="width:7px;height:7px"></span>
-      <span class="legend-size-dot" style="width:10px;height:10px"></span>
+      <div class="legend-title legend-title-second">Size</div>
+      <div class="legend-size">
+        <span class="legend-size-dot" style="width:5px;height:5px"></span>
+        <span class="legend-size-dot" style="width:7px;height:7px"></span>
+        <span class="legend-size-dot" style="width:10px;height:10px"></span>
+      </div>
+      <div class="legend-caption">Fewer ←  reviews  → More</div>
     </div>
-    <div class="legend-caption">Fewer ←  reviews  → More</div>
   </div>
 
   <div id="narrative-overlay">
@@ -200,6 +249,7 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.21.0/mapbox-gl.js"></script>
   <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
   <script src="https://unpkg.com/scrollama@3.2.0/build/scrollama.min.js"></script>

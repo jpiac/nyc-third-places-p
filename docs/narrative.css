@@ -34,9 +34,9 @@ body.narrative-active #narrative-overlay,
 }
 
 #narrative-skip {
-  position: absolute;
-  bottom: 32px;
-  right: 32px;
+  position: fixed;
+  top: 16px;
+  right: 16px;
   background: transparent;
   border: 1px solid rgba(255,255,255,0.5);
   color: rgba(255,255,255,0.7);
@@ -47,7 +47,7 @@ body.narrative-active #narrative-overlay,
   cursor: pointer;
   pointer-events: auto;
   transition: border-color 0.2s, color 0.2s;
-  z-index: 102;
+  z-index: 40;
 }
 #narrative-skip:hover {
   border-color: rgba(255,255,255,0.9);

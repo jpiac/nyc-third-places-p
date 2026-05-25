@@ -346,6 +346,17 @@ let filterMatchIds = new Set();
 let filterTypeFilter = 'all';
 let filterBoroughFilter = 'all';
 
+// Header search state. fuseIndex is populated once in initSearch() after
+// featuresById is filled; the three sub-filters narrow the candidate set
+// applied by runSearch on top of the fuzzy-name match (or full sort when
+// the query is empty).
+let fuseIndex = null;
+let searchQuery = '';
+let searchTypeFilter = '';
+let searchBoroughFilter = '';
+let searchTagFilter = '';
+let searchActive = false;
+
 function showError(msg) {
   const el = document.getElementById('error');
   el.textContent = msg;
@@ -1777,6 +1788,227 @@ function closeSidebar() {
   map.setPaintProperty('faded-overlay', 'background-opacity', 0, { duration: 300 });
 }
 
+// ---------- Header search ----------
+// Builds the Fuse.js index over featuresById, populates the type dropdown
+// from real data, and wires the input + filter dropdowns + clear/close
+// behavior. Idempotent: bails if Fuse hasn't loaded (CDN miss) and is
+// safe to call only once — there's no teardown path.
+function initSearch() {
+  if (!window.Fuse) return;
+  const places = Array.from(featuresById.values()).filter((p) => p && p.name);
+
+  fuseIndex = new window.Fuse(places, {
+    keys: [
+      { name: 'name', weight: 0.7 },
+      { name: 'osm_type', weight: 0.15 },
+      { name: 'soul_summary', weight: 0.15 },
+    ],
+    threshold: 0.35,
+    minMatchCharLength: 2,
+    includeScore: true,
+  });
+
+  // Type dropdown populated from real data so the user only sees types
+  // that exist in the dataset (not the full OSM_TYPE_LABELS catalog).
+  const types = [...new Set(places.map((p) => p.osm_type).filter(Boolean))].sort();
+  const typeSelect = document.getElementById('search-type-filter');
+  if (typeSelect) {
+    types.forEach((t) => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = formatOsmType(t);
+      typeSelect.appendChild(opt);
+    });
+  }
+
+  const input = document.getElementById('search-input');
+  const clearBtn = document.getElementById('search-clear');
+  const filtersEl = document.getElementById('search-filters');
+  const resultsEl = document.getElementById('search-results');
+  if (!input || !clearBtn || !filtersEl || !resultsEl) return;
+
+  input.addEventListener('focus', () => {
+    searchActive = true;
+    filtersEl.style.display = 'flex';
+    if (searchQuery || searchTypeFilter || searchBoroughFilter || searchTagFilter) {
+      resultsEl.style.display = 'block';
+    }
+    runSearch();
+  });
+
+  input.addEventListener('input', (e) => {
+    searchQuery = e.target.value;
+    clearBtn.style.display = searchQuery ? 'block' : 'none';
+    resultsEl.style.display = 'block';
+    runSearch();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    searchQuery = '';
+    clearBtn.style.display = 'none';
+    runSearch();
+  });
+
+  document.getElementById('search-type-filter').addEventListener('change', (e) => {
+    searchTypeFilter = e.target.value;
+    runSearch();
+  });
+  document.getElementById('search-borough-filter').addEventListener('change', (e) => {
+    searchBoroughFilter = e.target.value;
+    runSearch();
+  });
+  document.getElementById('search-tag-filter').addEventListener('change', (e) => {
+    searchTagFilter = e.target.value;
+    runSearch();
+  });
+
+  // Click anywhere outside the search container collapses results +
+  // filters. The map click handler in initMap also fires on outside
+  // clicks but uses queryRenderedFeatures, so the two don't collide.
+  document.addEventListener('click', (e) => {
+    const container = document.getElementById('search-container');
+    if (container && !container.contains(e.target)) {
+      closeSearch();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeSearch();
+  });
+}
+
+// Name-based filter used to suppress 9/11 memorial entries from the
+// empty-query default list. The "9/11 Memorial", "September 11th Victims
+// Memorial", and several adjacent OSM features share the broader WTC
+// complex's ~93k Google review count — without this filter they take
+// over the top 7 slots before any other place appears.
+const NINE_ELEVEN_RE = /9\/11|9-11|september\s*11|ground\s*zero/i;
+function is911Related(name) {
+  return NINE_ELEVEN_RE.test(name);
+}
+
+function runSearch() {
+  if (!fuseIndex) return;
+  const listEl = document.getElementById('search-results-list');
+  const resultsEl = document.getElementById('search-results');
+  if (!listEl) return;
+
+  // Candidate pool: fuzzy-match the query if it's long enough, otherwise
+  // the full set sorted by review_count so the panel doubles as a
+  // "popular places" browser when empty + filters are applied.
+  let candidates;
+  if (searchQuery.length >= 2) {
+    candidates = fuseIndex.search(searchQuery).map((r) => r.item);
+  } else {
+    // Empty-query default list. Excludes 9/11 memorial entries — several
+    // share the WTC complex's review_count (~93k) and would otherwise
+    // monopolize the top of the list. Users who actively search for
+    // "9/11" or "memorial" still find them via the fuzzy branch above.
+    candidates = Array.from(featuresById.values())
+      .filter((p) => p && p.name && !is911Related(p.name))
+      .sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
+  }
+
+  if (searchTypeFilter) {
+    candidates = candidates.filter((p) => p.osm_type === searchTypeFilter);
+  }
+  if (searchBoroughFilter) {
+    candidates = candidates.filter((p) => p.borough === searchBoroughFilter);
+  }
+  if (searchTagFilter) {
+    candidates = candidates.filter((p) => {
+      const ct = p.community_tags || {};
+      if (searchTagFilter === 'facdb_senior') return ct.facdb_category === 'senior_center';
+      if (searchTagFilter === 'facdb_youth') return ct.facdb_category === 'youth_services';
+      if (searchTagFilter === 'facdb_library') return ct.facdb_category === 'library';
+      if (searchTagFilter === 'lgbtq_primary') return ct.lgbtq_primary === true;
+      return ct[searchTagFilter] === true;
+    });
+  }
+
+  const total = candidates.length;
+  const shown = candidates.slice(0, 50);
+
+  if (shown.length === 0) {
+    listEl.innerHTML = '<div class="search-no-results">No places found</div>';
+    resultsEl.style.display = 'block';
+    return;
+  }
+
+  const colorByType = window.COLOR_BY_TYPE || COLOR_BY_TYPE || {};
+  const defaultColor = window.COLOR_DEFAULT || COLOR_DEFAULT || '#888888';
+
+  const itemsHtml = shown.map((p) => {
+    const color = colorByType[p.osm_type] || defaultColor;
+    const type = formatOsmType(p.osm_type || '');
+    const borough = p.borough || '';
+    return (
+      '<button class="search-result-item" data-id="' + escapeHtml(p.id) + '">' +
+        '<span class="search-result-dot" style="background:' + color + '"></span>' +
+        '<span class="search-result-name">' + escapeHtml(p.name || '') + '</span>' +
+        '<span class="search-result-meta">' + escapeHtml(type) + (borough ? ' · ' + escapeHtml(borough) : '') + '</span>' +
+      '</button>'
+    );
+  }).join('');
+
+  const countHtml =
+    '<div class="search-results-count">' +
+      total + ' place' + (total !== 1 ? 's' : '') +
+      (total > 50 ? ' (showing 50)' : '') +
+    '</div>';
+
+  listEl.innerHTML = countHtml + itemsHtml;
+
+  listEl.querySelectorAll('.search-result-item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const placeId = btn.dataset.id;
+      if (!placeId) return;
+      const place = featuresById.get(placeId);
+      if (place && Array.isArray(place.coordinates)) {
+        map.flyTo({
+          center: place.coordinates,
+          zoom: 15,
+          duration: 1200,
+        });
+      }
+      openSidebar(placeId);
+      closeSearch();
+    });
+  });
+
+  resultsEl.style.display = 'block';
+}
+
+function closeSearch() {
+  searchActive = false;
+  const filtersEl = document.getElementById('search-filters');
+  const resultsEl = document.getElementById('search-results');
+  if (filtersEl) filtersEl.style.display = 'none';
+  if (resultsEl) resultsEl.style.display = 'none';
+}
+
+// Collapsible legend — toggle button at the top of #legend hides/shows
+// .legend-content. Collapsed by default on phones since the legend
+// otherwise eats a noticeable chunk of the bottom edge of the screen.
+function initLegend() {
+  const toggle = document.getElementById('legend-toggle');
+  const content = document.getElementById('legend-content');
+  if (!toggle || !content) return;
+
+  if (window.innerWidth <= 640) {
+    content.classList.add('is-collapsed');
+    const icon = toggle.querySelector('.legend-toggle-icon');
+    if (icon) icon.textContent = '▸';
+  }
+
+  toggle.addEventListener('click', () => {
+    const collapsed = content.classList.toggle('is-collapsed');
+    const icon = toggle.querySelector('.legend-toggle-icon');
+    if (icon) icon.textContent = collapsed ? '▸' : '▾';
+  });
+}
+
 async function initMap() {
   const bounds = [
   [-74.259, 40.477], // Southwest coordinates (e.g., New York area)
@@ -1793,7 +2025,10 @@ async function initMap() {
     minZoom: 10,
     maxBounds: bounds,
   });
-  map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
+  // showCompass: true gives us Mapbox's native compass widget — a north
+  // arrow that rotates with the bearing and resets it to 0 on click.
+  // Replaces an earlier custom #north-arrow element that did the same.
+  map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'bottom-right');
 
   showLoading('Loading New York City...');
   let raw;
@@ -2110,6 +2345,11 @@ async function initMap() {
   }
 
   initMobileSheet();
+  // featuresById is populated by buildGeoJSON above, the style is loaded,
+  // and Fuse.js's <script> tag runs before main.js — so the index can be
+  // built immediately. The dropdown wiring + event listeners attach here.
+  initSearch();
+  initLegend();
 
   function onCircleMouseEnter(e) {
   if (!e.features.length) return;
