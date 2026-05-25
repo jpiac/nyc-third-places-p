@@ -2019,7 +2019,7 @@ async function initMap() {
   map = new mapboxgl.Map({
     container: 'map',
     style: 'mapbox://styles/jpiac/cmpekflsk003801s3f6ky6n8y',
-    center: [-73.98, 40.7],
+    center: [-73.95, 40.7],
     zoom: 11,
     pitch: 40,
     minZoom: 10,

@@ -3,7 +3,7 @@
 
   const LS_KEY = 'narrative_seen';
   const PLACES_LAYER = 'places-circles-main';
-  const INITIAL_CENTER = [-73.98, 40.7];
+  const INITIAL_CENTER = [-73.95, 40.7];
   const INITIAL_ZOOM = 11;
   const INITIAL_PITCH = 40;
   // Hero places used across Beats 4–8. IDs match the place.id strings
@@ -502,11 +502,11 @@
         subwayAnimFrame = requestAnimationFrame(frame);
       } else {
         subwayAnimFrame = null;
-        // Hold the fully-drawn grid for 1s, then start the undraw pass.
+        // Hold the fully-drawn grid for 100ms, then start the undraw pass.
         subwayUndrawTimer = setTimeout(() => {
           subwayUndrawTimer = null;
           undrawSubwayLines();
-        }, 1000);
+        }, 100);
       }
     }
     subwayAnimFrame = requestAnimationFrame(frame);
@@ -1906,10 +1906,9 @@
         } catch (e) {}
       });
       constellationTimers.push(setTimeout(() => revealGroup(0), 500));
-      constellationTimers.push(setTimeout(() => revealGroup(1), 900));
-      constellationTimers.push(setTimeout(() => revealGroup(2), 1300));
+      constellationTimers.push(setTimeout(() => revealGroup(1), 1000));
       // Subway lines fade in alongside the constellation hint.
-      setTimeout(() => drawSubwayLines(), 800);
+      setTimeout(() => drawSubwayLines(), 400);
     }
 
     else if (n === 3) {
