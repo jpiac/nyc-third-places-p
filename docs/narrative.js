@@ -1886,18 +1886,17 @@
         zoom: 11.1,
         pitch: INITIAL_PITCH,
         bearing: 0,
-        duration: 2000,
+        duration: 3000,
       });
     }
 
     else if (n === 2) {
       const c = map.getCenter();
-      map.easeTo({ center: [c.lng, c.lat - 0.03], duration: 3000 });
       // Constellation hint — prep the first 3 groups (visibility + fade-in
       // transition) so revealGroup can actually animate them in, then
       // stagger the reveals. constellationReveal() in Beat 3 redoes the
       // full setup for all 20 groups, so any prep here is harmless.
-      [0, 1, 2].forEach((g) => {
+      [0, 1].forEach((g) => {
         const id = constellationLayerId(g);
         try {
           map.setLayoutProperty(id, 'visibility', 'visible');
@@ -1967,7 +1966,7 @@
       }, 300);
       drawRainbowArcs(henrietta, places, () => {});
       map.easeTo({
-        center: [-73.98, 40.73],
+        center: INITIAL_CENTER,
         zoom: 11,
         pitch: INITIAL_PITCH,
         bearing: 0,
@@ -1987,8 +1986,8 @@
       clearAllNarrativeBeatTimers();
       map.flyTo({
         center: TROPICANA_COORDS,
-        zoom: 14,
-        pitch: 65,
+        zoom: 12.75,
+        pitch: 55,
         bearing: 210,
         duration: 3000,
       });

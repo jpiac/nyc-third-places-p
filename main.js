@@ -742,7 +742,7 @@ function buildSecondTierLayers(lineData) {
       data: lineData,
       getSourcePosition: (d) => d.path[0],
       getTargetPosition: (d) => d.path[1],
-      getColor: (d) => [d.color[0], d.color[1], d.color[2], 200],
+      getColor: (d) => [d.color[0], d.color[1], d.color[2], 220],
       getWidth: 1.5,
       widthUnits: 'pixels',
     }),
@@ -783,8 +783,8 @@ function drawKindredLines(placeId) {
     return {
       from: source.coordinates,
       to: dest.coordinates,
-      sourceColor: [...sourceColor, 250],
-      targetColor: [...destColor, 250],
+      sourceColor: [...sourceColor, 255],
+      targetColor: [...destColor, 255],
     };
   }).filter(Boolean);
 
@@ -909,8 +909,8 @@ function drawSecondTierLines(firstTierIds) {
       segments.push({
         from: firstPlace.coordinates,
         to: secondPlace.coordinates,
-        sourceColor: [...firstColor, 240],
-        targetColor: [...secondColor, 240],
+        sourceColor: [...firstColor, 245],
+        targetColor: [...secondColor, 245],
       });
       // Collect dest source IDs — we'll flip feature-state inside the
       // setTimeout below so the dot fade-in starts the same instant the
