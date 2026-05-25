@@ -3,6 +3,89 @@ const MAPBOX_TOKEN = 'pk.eyJ1IjoianBpYWMiLCJhIjoiY21wZzNpazdvMGRlbzJxcHF1aXJ3cGN
 const DATA_URL = './data/nyc_final.json';
 const TOP_KINDRED = 8;
 
+const FORMSPREE_URL = 'https://formspree.io/f/xlgvpgza';
+let feedbackPlaceId = null;
+let feedbackPlaceName = null;
+
+function openFeedbackModal(placeId, placeName) {
+  feedbackPlaceId = placeId || null;
+  feedbackPlaceName = placeName || null;
+  const modal = document.getElementById('feedback-modal');
+  const title = document.getElementById('feedback-modal-title');
+  const subtitle = document.getElementById('feedback-modal-subtitle');
+  const success = document.getElementById('feedback-success');
+  const textarea = document.getElementById('feedback-text');
+  const submitBtn = document.getElementById('feedback-submit-btn');
+  if (placeId && placeName) {
+    title.textContent = 'Report an Issue';
+    subtitle.textContent = placeName;
+  } else {
+    title.textContent = 'Share Feedback';
+    subtitle.textContent = 'Help us improve The Third Place map.';
+  }
+  textarea.value = '';
+  success.style.display = 'none';
+  submitBtn.style.display = '';
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Submit';
+  const cancelBtn = document.querySelector('.feedback-cancel-btn');
+  if (cancelBtn) cancelBtn.textContent = 'Cancel';
+  modal.setAttribute('aria-hidden', 'false');
+  modal.classList.add('is-open');
+  setTimeout(() => textarea.focus(), 100);
+}
+window.openFeedbackModal = openFeedbackModal;
+
+function closeFeedbackModal() {
+  const modal = document.getElementById('feedback-modal');
+  modal.classList.remove('is-open');
+  modal.setAttribute('aria-hidden', 'true');
+}
+window.closeFeedbackModal = closeFeedbackModal;
+
+async function submitFeedback() {
+  const text = document.getElementById('feedback-text').value.trim();
+  if (!text) return;
+  const submitBtn = document.getElementById('feedback-submit-btn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Sending...';
+  const payload = {
+    message: text,
+    type: feedbackPlaceId ? 'place' : 'general',
+    place_id: feedbackPlaceId || '',
+    place_name: feedbackPlaceName || '',
+    url: window.location.href,
+  };
+  try {
+    const res = await fetch(FORMSPREE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      document.getElementById('feedback-success').style.display = 'block';
+      submitBtn.style.display = 'none';
+      document.querySelector('.feedback-cancel-btn').textContent = 'Close';
+    } else {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Try again';
+    }
+  } catch (e) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Try again';
+  }
+}
+window.submitFeedback = submitFeedback;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('feedback-modal');
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeFeedbackModal();
+    });
+  }
+});
+
 const COLOR_BY_TYPE = {
   cafe: '#E07A5F',
   bar: '#3D405B',
@@ -245,6 +328,23 @@ function removeConstellationLayers(mapInstance) {
 
 const DEFAULT_OPACITY_EXPR = 0.9;
 const SELECTION_OPACITY_EXPR = 0.1;
+// In filter mode the main layer dims unmatched places to 0.1 and keeps
+// matched places at 0.9 via the `filter_matched` feature-state flag set
+// by enterFilterMode.
+const FILTER_OPACITY_EXPR = [
+  'case',
+  ['boolean', ['feature-state', 'filter_matched'], false], 0.9,
+  0.1,
+];
+
+// Community tag filter mode state. Driven by clicks on the community
+// pills in the sidebar vibe chart; exited via the Done button or
+// closeSidebar.
+let activeFilterTag = null;
+let activeFilterLabel = null;
+let filterMatchIds = new Set();
+let filterTypeFilter = 'all';
+let filterBoroughFilter = 'all';
 
 function showError(msg) {
   const el = document.getElementById('error');
@@ -374,10 +474,20 @@ function renderVibeChart(place) {
     );
   }
 
-  // Community pills — merged OSM + DataForSEO + FacDB signals.
-  const pill = (svg, label) =>
-    '<div class="vibe-community-tag">' + svg +
-    '<span>' + escapeHtml(label) + '</span></div>';
+  // Community pills — merged OSM + DataForSEO + FacDB signals. When a
+  // pill carries a tagKey it's a filterable signal; clicking it routes
+  // into enterFilterMode (wired in openSidebar). The is-active class
+  // mirrors activeFilterTag so the pill on the currently selected
+  // place's vibe chart visually reflects which filter is live.
+  const pill = (svg, label, tagKey) => {
+    const attrs = tagKey
+      ? ' data-filter-tag="' + escapeHtml(tagKey) +
+        '" data-filter-label="' + escapeHtml(label) + '"'
+      : '';
+    const activeCls = (tagKey && activeFilterTag === tagKey) ? ' is-active' : '';
+    return '<div class="vibe-community-tag' + activeCls + '"' + attrs + '>' +
+      svg + '<span>' + escapeHtml(label) + '</span></div>';
+  };
 
   const communityTags = [];
 
@@ -385,25 +495,25 @@ function renderVibeChart(place) {
     community.lgbtq_primary === true || community.dfs_lgbtq_owned === true;
   const lgbtqWelcoming =
     community.lgbtq_friendly === true || community.dfs_lgbtq_welcoming === true;
-  if (lgbtqOwned) communityTags.push(pill(RAINBOW_SVG, 'LGBTQ+ Owned'));
+  if (lgbtqOwned) communityTags.push(pill(RAINBOW_SVG, 'LGBTQ+ Owned', 'lgbtq_owned'));
   // Owned implies welcoming — suppress the welcoming pill if owned is set.
   if (lgbtqWelcoming && !lgbtqOwned) {
-    communityTags.push(pill(RAINBOW_SMALL_SVG, 'LGBTQ+ Welcoming'));
+    communityTags.push(pill(RAINBOW_SMALL_SVG, 'LGBTQ+ Welcoming', 'lgbtq_welcoming'));
   }
   if (community.dfs_transgender_safe === true) {
-    communityTags.push(pill(TRANS_SVG, 'Transgender Safe Space'));
+    communityTags.push(pill(TRANS_SVG, 'Transgender Safe Space', 'dfs_transgender_safe'));
   }
   if (community.dfs_women_owned === true) {
-    communityTags.push(pill(WOMEN_SVG, 'Women-Owned'));
+    communityTags.push(pill(WOMEN_SVG, 'Women-Owned', 'dfs_women_owned'));
   }
   if (community.dfs_asian_owned === true) {
-    communityTags.push(pill(FIST_SVG, 'Asian-Owned'));
+    communityTags.push(pill(FIST_SVG, 'Asian-Owned', 'dfs_asian_owned'));
   }
   if (community.dfs_indigenous_owned === true) {
-    communityTags.push(pill(FIST_SVG, 'Indigenous-Owned'));
+    communityTags.push(pill(FIST_SVG, 'Indigenous-Owned', 'dfs_indigenous_owned'));
   }
   if (community.dfs_wheelchair_accessible === true) {
-    communityTags.push(pill(WHEELCHAIR_SVG, 'Wheelchair Accessible'));
+    communityTags.push(pill(WHEELCHAIR_SVG, 'Wheelchair Accessible', 'dfs_wheelchair_accessible'));
   }
 
   const forCommunity = String(community.for_community || '').toLowerCase();
@@ -414,18 +524,18 @@ function renderVibeChart(place) {
     community.facdb_category === 'youth_services' ||
     forCommunity.includes('child') ||
     forCommunity.includes('juvenile');
-  if (isSenior) communityTags.push(pill(PERSON_SVG, 'Senior Center'));
-  if (isYouth) communityTags.push(pill(PERSON_SVG, 'Youth Services'));
+  if (isSenior) communityTags.push(pill(PERSON_SVG, 'Senior Center', 'senior_center'));
+  if (isYouth) communityTags.push(pill(PERSON_SVG, 'Youth Services', 'youth_services'));
 
   if (community.operator_type === 'ngo' ||
       community.operator_type === 'private_non_profit') {
-    communityTags.push(pill(STAR_SVG, 'Non-profit'));
+    communityTags.push(pill(STAR_SVG, 'Non-profit', 'nonprofit'));
   }
 
   const religion = String(community.religion || '').toLowerCase().trim();
   if (religion && !SKIPPED_RELIGIONS.has(religion)) {
     const label = religion.charAt(0).toUpperCase() + religion.slice(1);
-    communityTags.push(pill(RELIGION_SVG, label));
+    communityTags.push(pill(RELIGION_SVG, label, 'religion:' + religion));
   }
 
   if (items.length === 0 && communityTags.length === 0) return '';
@@ -929,11 +1039,22 @@ function toggleSecondTier() {
   if (btn) btn.classList.toggle('is-active', showSecondTier);
 
   if (!showSecondTier) {
-    clearSecondTierLines();
+    // In filter mode the "web" arcs live in firstTierLineData (drawn by
+    // drawFilterLines), so clearing the kindred lines is the way to wipe
+    // them. Normal mode only needs to drop the second-tier expansion.
+    if (activeFilterTag) {
+      clearKindredLines();
+    } else {
+      clearSecondTierLines();
+    }
     return;
   }
   // Turning on — only act if there's an active selection to draw against.
   if (!selectedPlaceId) return;
+  if (activeFilterTag) {
+    drawFilterLines(selectedPlaceId);
+    return;
+  }
   const place = featuresById.get(selectedPlaceId);
   if (!place || !Array.isArray(place.similarity_ids)) return;
   drawSecondTierLines(place.similarity_ids.slice(0, TOP_KINDRED));
@@ -942,6 +1063,349 @@ window.toggleSecondTier = toggleSecondTier;
 // Initial state mirrored once on load so callers that read window.showSecondTier
 // before any toggle still see the current value.
 window.showSecondTier = showSecondTier;
+
+// ---------- Community tag filter mode ----------
+// Resolves a tagKey to a predicate against a place's community_tags. Keeps
+// the per-pill OR-logic from renderVibeChart so that the filter set matches
+// the set of places that would actually render that pill.
+function matchesFilterTag(place, tagKey) {
+  const c = place.community_tags || {};
+  if (tagKey === 'lgbtq_owned') {
+    return c.lgbtq_primary === true || c.dfs_lgbtq_owned === true;
+  }
+  if (tagKey === 'lgbtq_welcoming') {
+    return c.lgbtq_friendly === true || c.dfs_lgbtq_welcoming === true;
+  }
+  if (tagKey === 'senior_center') {
+    const fc = String(c.for_community || '').toLowerCase();
+    return c.facdb_category === 'senior_center' || fc.includes('senior');
+  }
+  if (tagKey === 'youth_services') {
+    const fc = String(c.for_community || '').toLowerCase();
+    return c.facdb_category === 'youth_services' ||
+      fc.includes('child') || fc.includes('juvenile');
+  }
+  if (tagKey === 'nonprofit') {
+    return c.operator_type === 'ngo' || c.operator_type === 'private_non_profit';
+  }
+  if (tagKey.startsWith('religion:')) {
+    const want = tagKey.slice('religion:'.length);
+    return String(c.religion || '').toLowerCase().trim() === want;
+  }
+  return c[tagKey] === true;
+}
+
+function getPlacesForTag(tagKey) {
+  const result = [];
+  for (const place of featuresById.values()) {
+    if (matchesFilterTag(place, tagKey)) result.push(place);
+  }
+  return result;
+}
+
+function setFilterMatchedState(ids, value) {
+  if (!map) return;
+  for (const id of ids) {
+    try {
+      map.setFeatureState(
+        { source: 'places', sourceLayer: 'nyc_places', id },
+        { filter_matched: value }
+      );
+    } catch (e) { /* layer not ready */ }
+  }
+}
+
+function enterFilterMode(tagKey, tagLabel) {
+  // Re-click on the active tag exits filter mode (acts as toggle off).
+  if (activeFilterTag === tagKey) {
+    exitFilterMode();
+    return;
+  }
+  // Switching tags — clear the prior filter_matched flags before swapping.
+  if (activeFilterTag) {
+    setFilterMatchedState(filterMatchIds, false);
+    filterMatchIds.clear();
+  }
+
+  activeFilterTag = tagKey;
+  activeFilterLabel = tagLabel;
+  filterTypeFilter = 'all';
+  filterBoroughFilter = 'all';
+
+  for (const place of getPlacesForTag(tagKey)) {
+    filterMatchIds.add(place.id);
+  }
+  setFilterMatchedState(filterMatchIds, true);
+
+  if (map) {
+    try {
+      map.setPaintProperty('places-circles-main', 'circle-opacity', FILTER_OPACITY_EXPR);
+    } catch (e) {}
+  }
+
+  clearKindredLines();
+  // Drop the connected-overlay highlight ring on first-tier kindred — those
+  // belong to the prior (non-filter) selection and would otherwise sit on
+  // top of the filter set.
+  if (map) {
+    for (const id of connectedIds) {
+      try {
+        map.setFeatureState(
+          { source: 'places', sourceLayer: 'nyc_places', id },
+          { connected: false }
+        );
+      } catch (e) {}
+    }
+    connectedIds.clear();
+  }
+
+  if (selectedPlaceId) {
+    // Re-render the sidebar in filter mode for the currently selected place.
+    openSidebar(selectedPlaceId);
+    if (showSecondTier) drawFilterLines(selectedPlaceId);
+  }
+}
+
+function exitFilterMode(rerender = true) {
+  if (!activeFilterTag) return;
+
+  setFilterMatchedState(filterMatchIds, false);
+  filterMatchIds.clear();
+  activeFilterTag = null;
+  activeFilterLabel = null;
+  filterTypeFilter = 'all';
+  filterBoroughFilter = 'all';
+
+  // Restore the main-layer opacity so the global expression matches the
+  // current selection state. If a place is still selected the expression
+  // returns to the dimmed SELECTION_OPACITY_EXPR (kindred overlays light
+  // up the selection+kindred); otherwise to the default 0.9.
+  if (map) {
+    try {
+      map.setPaintProperty(
+        'places-circles-main',
+        'circle-opacity',
+        selectedPlaceId ? SELECTION_OPACITY_EXPR : DEFAULT_OPACITY_EXPR
+      );
+    } catch (e) {}
+  }
+
+  // Drop filter-mode arcs before redrawing the normal kindred lines.
+  clearKindredLines();
+
+  if (rerender && selectedPlaceId) {
+    openSidebar(selectedPlaceId);
+  }
+}
+
+window.exitFilterModeFromUI = function () {
+  exitFilterMode(true);
+};
+
+// Draw arcs from the selected place to the closest 50 places in the
+// current filter set. Mirrors drawKindredLines' animation/style but reads
+// from filterMatchIds and skips the kindred-specific connected-overlay
+// fade since the filter set is already styled via filter_matched.
+function drawFilterLines(placeId) {
+  if (!deckInstance) return;
+  const source = featuresById.get(placeId);
+  if (!source || !Array.isArray(source.coordinates)) return;
+
+  if (arcAnimFrame !== null) {
+    cancelAnimationFrame(arcAnimFrame);
+    arcAnimFrame = null;
+  }
+  clearSecondTierLines();
+
+  const sLng = source.coordinates[0];
+  const sLat = source.coordinates[1];
+  const candidates = [];
+  for (const id of filterMatchIds) {
+    if (id === placeId) continue;
+    const dest = featuresById.get(id);
+    if (!dest || !Array.isArray(dest.coordinates)) continue;
+    const dx = dest.coordinates[0] - sLng;
+    const dy = dest.coordinates[1] - sLat;
+    candidates.push({ dest, dist: dx * dx + dy * dy });
+  }
+  candidates.sort((a, b) => a.dist - b.dist);
+  const top = candidates.slice(0, 50);
+
+  const sourceColor = hexToRgb(COLOR_BY_TYPE[source.osm_type] || COLOR_DEFAULT);
+  const segments = top.map(({ dest }) => {
+    const destColor = hexToRgb(COLOR_BY_TYPE[dest.osm_type] || COLOR_DEFAULT);
+    return {
+      from: source.coordinates,
+      to: dest.coordinates,
+      sourceColor: [...sourceColor, 250],
+      targetColor: [...destColor, 250],
+    };
+  });
+
+  if (segments.length === 0) {
+    firstTierLineData = [];
+    renderArcs();
+    return;
+  }
+
+  const ARC_POINTS = 40;
+  const ARC_HEIGHT = 0.3;
+  const DURATION = 1500;
+  const startTime = performance.now();
+
+  const arcPaths = segments.map((seg) => ({
+    points: sampleArc(seg.from, seg.to, ARC_HEIGHT, ARC_POINTS),
+    sourceColor: seg.sourceColor,
+    targetColor: seg.targetColor,
+  }));
+
+  function frame(now) {
+    const t = Math.min(1, (now - startTime) / DURATION);
+    const eased = 1 - Math.pow(1 - t, 2);
+    syncDeckView();
+    const lineData = [];
+    arcPaths.forEach((arc) => {
+      const visibleCount = t >= 1
+        ? arc.points.length
+        : Math.max(2, Math.floor(eased * ARC_POINTS));
+      const visiblePoints = arc.points.slice(0, visibleCount);
+      for (let i = 0; i < visiblePoints.length - 1; i++) {
+        const segT = i / (ARC_POINTS - 1);
+        const color = interpolateColorRgb(arc.sourceColor, arc.targetColor, segT);
+        lineData.push({ path: [visiblePoints[i], visiblePoints[i + 1]], color });
+      }
+    });
+    firstTierLineData = lineData;
+    renderArcs();
+    if (t < 1) {
+      arcAnimFrame = requestAnimationFrame(frame);
+    } else {
+      arcAnimFrame = null;
+    }
+  }
+  arcAnimFrame = requestAnimationFrame(frame);
+}
+
+function renderFilterList(places) {
+  if (!places.length) {
+    return '<div class="filter-empty">No places match these filters.</div>';
+  }
+  return places.map((p) => {
+    const color = COLOR_BY_TYPE[p.osm_type] || COLOR_DEFAULT;
+    const meta = formatOsmType(p.osm_type || '') +
+      (p.borough ? ' · ' + p.borough : '');
+    return (
+      '<button class="filter-place-item" data-id="' + escapeHtml(p.id) + '">' +
+        '<span class="filter-place-dot" style="background:' + color + '"></span>' +
+        '<span class="filter-place-name">' + escapeHtml(p.name || '(unnamed)') + '</span>' +
+        '<span class="filter-place-meta">' + escapeHtml(meta) + '</span>' +
+      '</button>'
+    );
+  }).join('');
+}
+
+// Rebuilds the #filter-section UI in the sidebar. Called by enterFilterMode
+// (via openSidebar) and by dropdown onChange handlers so the list reflects
+// the current sub-filters.
+function renderFilterSidebar() {
+  const container = document.getElementById('filter-section');
+  if (!container) return;
+
+  const all = [];
+  for (const id of filterMatchIds) {
+    const p = featuresById.get(id);
+    if (p) all.push(p);
+  }
+
+  // Type dropdown options drawn from the full match set so the user can
+  // see every type that exists in the filter, even when one is currently
+  // narrowed out.
+  const typeSet = new Set();
+  for (const p of all) {
+    if (p.osm_type) typeSet.add(p.osm_type);
+  }
+  const typeOpts = ['<option value="all">All types</option>'];
+  for (const t of Array.from(typeSet).sort()) {
+    const sel = (t === filterTypeFilter) ? ' selected' : '';
+    typeOpts.push(
+      '<option value="' + escapeHtml(t) + '"' + sel + '>' +
+        escapeHtml(formatOsmType(t)) +
+      '</option>'
+    );
+  }
+
+  const boroughs = ['all', 'Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island'];
+  const boroughOpts = boroughs.map((b) => {
+    const sel = (b === filterBoroughFilter) ? ' selected' : '';
+    const label = b === 'all' ? 'All boroughs' : b;
+    return '<option value="' + escapeHtml(b) + '"' + sel + '>' + escapeHtml(label) + '</option>';
+  }).join('');
+
+  // Apply sub-filters to the displayed list.
+  let filtered = all;
+  if (filterTypeFilter !== 'all') {
+    filtered = filtered.filter((p) => p.osm_type === filterTypeFilter);
+  }
+  if (filterBoroughFilter !== 'all') {
+    filtered = filtered.filter((p) => p.borough === filterBoroughFilter);
+  }
+  filtered.sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
+  const display = filtered.slice(0, 100);
+
+  container.innerHTML =
+    '<div class="filter-header">' +
+      '<div class="filter-title">' +
+        '<span class="filter-tag-name">' + escapeHtml(activeFilterLabel || '') + '</span>' +
+        '<span class="filter-count">' + filtered.length + ' places</span>' +
+      '</div>' +
+      '<div class="filter-controls">' +
+        '<select class="filter-select" id="filter-type-select">' + typeOpts.join('') + '</select>' +
+        '<select class="filter-select" id="filter-borough-select">' + boroughOpts + '</select>' +
+        '<button class="filter-done-btn" onclick="exitFilterModeFromUI()">Done</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="filter-list">' + renderFilterList(display) + '</div>';
+
+  const typeSel = container.querySelector('#filter-type-select');
+  if (typeSel) {
+    typeSel.addEventListener('change', (e) => {
+      filterTypeFilter = e.target.value;
+      renderFilterSidebar();
+    });
+  }
+  const boroughSel = container.querySelector('#filter-borough-select');
+  if (boroughSel) {
+    boroughSel.addEventListener('change', (e) => {
+      filterBoroughFilter = e.target.value;
+      renderFilterSidebar();
+    });
+  }
+
+  container.querySelectorAll('.filter-place-item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id');
+      const target = featuresById.get(id);
+      if (target && Array.isArray(target.coordinates)) {
+        const flyOpts = {
+          center: target.coordinates,
+          zoom: 16,
+          pitch: 65,
+          duration: 5000,
+        };
+        if (window.innerWidth <= 640) {
+          flyOpts.padding = {
+            top: 0,
+            right: 0,
+            bottom: Math.round(window.innerHeight * 0.4),
+            left: 0,
+          };
+        }
+        map.flyTo(flyOpts);
+      }
+      openSidebar(id);
+    });
+  });
+}
 
 // Constellation pulse animation moved to narrative.js so each reveal group
 // can have its own start time — gives the twinkling effect instead of every
@@ -1137,7 +1601,10 @@ function setSelected(placeId) {
   selectedId = placeId;
   selectedPlaceId = placeId;
 
-  if (place && Array.isArray(place.similarity_ids)) {
+  // Suppress kindred highlight + selection-dim in filter mode — the filter
+  // expression on the main layer already provides the right visual contrast,
+  // and lighting up kindred would visually compete with the filter set.
+  if (!activeFilterTag && place && Array.isArray(place.similarity_ids)) {
     for (const pid of place.similarity_ids.slice(0, TOP_KINDRED)) {
       map.setFeatureState(
         { source: 'places', sourceLayer: 'nyc_places', id: pid },
@@ -1147,7 +1614,9 @@ function setSelected(placeId) {
     }
   }
 
-  map.setPaintProperty('places-circles-main', 'circle-opacity', SELECTION_OPACITY_EXPR);
+  if (!activeFilterTag) {
+    map.setPaintProperty('places-circles-main', 'circle-opacity', SELECTION_OPACITY_EXPR);
+  }
   map.setPaintProperty('faded-overlay', 'background-opacity', 0.3, { duration: 300 });
 }
 
@@ -1156,13 +1625,25 @@ function openSidebar(placeId) {
   if (!place) return;
 
   setSelected(placeId);
-  drawKindredLines(placeId);
+  // Filter mode suppresses kindred lines; if the user had the "web"
+  // toggle on, we redraw it against the filter set for the new selection.
+  if (activeFilterTag) {
+    clearKindredLines();
+    if (showSecondTier) drawFilterLines(placeId);
+  } else {
+    drawKindredLines(placeId);
+  }
 
   const badgeColor = COLOR_BY_TYPE[place.osm_type] || COLOR_DEFAULT;
   const parts = [];
   parts.push(
    '<div class="place-type-badge" style="background:' + badgeColor + '">' +
   escapeHtml(formatOsmType(place.osm_type || '')) + '</div>'
+  );
+  parts.push(
+    '<button class="place-feedback-btn" onclick="openFeedbackModal(\'' +
+    escapeHtml(place.id) + '\', \'' + escapeHtml(place.name || '') + '\')">' +
+    '⚑ Report issue</button>'
   );
   parts.push('<h2 class="place-name">' + escapeHtml(place.name || '(unnamed)') + '</h2>');
 
@@ -1173,12 +1654,22 @@ function openSidebar(placeId) {
     parts.push('<p class="place-editorial">' + escapeHtml(place.editorial_summary) + '</p>');
   }
   parts.push(renderVibeChart(place));
-  parts.push(renderKindredTypeBreakdown(place.similarity_ids));
-  parts.push(renderKindred(place.similarity_ids));
+  if (activeFilterTag) {
+    // Filter mode: the kindred section is replaced by a filter list UI.
+    // renderFilterSidebar fills this placeholder once the innerHTML lands.
+    parts.push('<div id="filter-section"></div>');
+  } else {
+    parts.push(renderKindredTypeBreakdown(place.similarity_ids));
+    parts.push(renderKindred(place.similarity_ids));
+  }
 
   const content = document.getElementById('sidebar-content');
   content.innerHTML = parts.join('');
   content.scrollTop = 0;
+
+  if (activeFilterTag) {
+    renderFilterSidebar();
+  }
 
   const sidebar = document.getElementById('sidebar');
   const wasOpen = sidebar.classList.contains('is-open');
@@ -1201,6 +1692,17 @@ function openSidebar(placeId) {
   if (tierBtn) {
     tierBtn.addEventListener('click', toggleSecondTier);
   }
+
+  // Community pill clickability — each pill carrying data-filter-tag
+  // routes into enterFilterMode. Pills without the attribute (none today)
+  // remain inert.
+  content.querySelectorAll('.vibe-community-tag[data-filter-tag]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const tag = el.getAttribute('data-filter-tag');
+      const label = el.getAttribute('data-filter-label');
+      enterFilterMode(tag, label);
+    });
+  });
 
   content.querySelectorAll('.kindred-card').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -1234,6 +1736,12 @@ function openSidebar(placeId) {
 }
 
 function closeSidebar() {
+  // If the sidebar is being closed while filter mode is live, tear down
+  // filter state first so the main-layer opacity expression resets before
+  // unfadeMain runs. Skip the re-render path — we're closing, not switching.
+  if (activeFilterTag) {
+    exitFilterMode(false);
+  }
   const sidebar = document.getElementById('sidebar');
   const wasOpen = sidebar.classList.contains('is-open');
   // Drop the expanded state BEFORE the close transform so the sheet animates
@@ -1280,7 +1788,7 @@ async function initMap() {
     container: 'map',
     style: 'mapbox://styles/jpiac/cmpekflsk003801s3f6ky6n8y',
     center: [-73.98, 40.7],
-    zoom: 10,
+    zoom: 11,
     pitch: 40,
     minZoom: 10,
     maxBounds: bounds,

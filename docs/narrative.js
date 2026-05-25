@@ -4,21 +4,32 @@
   const LS_KEY = 'narrative_seen';
   const PLACES_LAYER = 'places-circles-main';
   const INITIAL_CENTER = [-73.98, 40.7];
-  const INITIAL_ZOOM = 10;
+  const INITIAL_ZOOM = 11;
   const INITIAL_PITCH = 40;
   // Hero places used across Beats 4–8. IDs match the place.id strings
   // produced by 01_filter_osm.js (`osm_<osm_id>`). If the underlying data
   // shifts and these IDs no longer resolve, the FALLBACK names render in
   // the right-side card and the arc draws become no-ops.
-  const ISLAND_COORDS = [-73.9954421, 40.7167915];
-  const ISLAND_ID = 'osm_12228581278';
-  const ISLAND_NAME = 'Island NYC';
-  const STRAND_COORDS = [-73.9909401, 40.7332796];
-  const STRAND_ID = 'osm_999934639';
-  const STRAND_NAME = 'Strand Bookstore';
-  const TROPICANA_COORDS = [-73.89881, 40.81426];
+  const TROPICANA_COORDS = [-73.8872699, 40.8283426];
   const TROPICANA_ID = 'osm_5172757288';
   const TROPICANA_NAME = 'Tropicana';
+
+  // Beats 4–5: Henrietta Hudson as the LGBTQ+ identity beat anchor. The
+  // rainbow arc colors are sampled per-arc with slight alpha jitter so the
+  // 50-arc bouquet reads as varied without an explicit per-target mapping.
+  const HENRIETTA_COORDS = [-74.0065268, 40.7310628];
+  const HENRIETTA_ID = 'osm_6182279414';
+  const HENRIETTA_NAME = 'Henrietta Hudson';
+
+  const RAINBOW_ARC_COLORS = [
+    [255, 0, 24],
+    [255, 125, 0],
+    [255, 237, 0],
+    [0, 158, 47],
+    [0, 70, 200],
+    [134, 0, 175],
+    [255, 148, 200],
+  ];
 
   // Star palette — used for ALL narrative arcs (first- and second-degree)
   // throughout Beats 4–8. The colored type-palette is reserved for the
@@ -38,6 +49,20 @@
   const PULSE_FREQUENCY_HZ = 1.5;    // sine cycles per second
   const PULSE_THROTTLE_MS = 33;      // ~30Hz radius/blur update cadence
   const STAR_OPACITY = 0.85;
+
+  // Real MTA subway line geometry is fetched at init time from NYC Open
+  // Data (see fetchSubwayLines below) and cached in subwayLinesData. Colors
+  // cycle through this star palette so the routes read as a constellation
+  // of trunk lines rather than a categorical transit map.
+  const STAR_PALETTE = [
+    [255, 255, 255],   // white
+    [255, 249, 196],   // warm white
+    [255, 237, 120],   // light gold
+    [255, 224, 102],   // gold
+    [255, 245, 160],   // pale yellow
+    [255, 235, 80],    // bright gold
+    [255, 255, 220],   // cream
+  ];
 
   function constellationLayerId(g) {
     return `constellation-stars-${g}`;
@@ -71,17 +96,14 @@
   let narrativePlaceCardEl = null;
   let narrativeKindredCardEl = null;
   let narrativeWebBadgeVisible = false;
-  let islandSecondTierTimer = null;
-  let strandKindredTimer = null;
-  // Beat-4 island first-tier draw timer (the 2800ms wait between flyTo
-  // start and arc start).
-  let islandArcTimer = null;
   // Beat 7 Tropicana card-show timer + Beat 8 kindred-card and web-badge
   // and second-tier sub-timers.
   let tropicanaCardTimer = null;
   let tropicanaKindredCardTimer = null;
   let tropicanaWebBadgeTimer = null;
-  let strandKindredCardTimer = null;
+  // Beat 5 Henrietta kindred-card-show timer — drives the same 300ms
+  // delay-after-slide-up pattern Tropicana uses in Beat 7.
+  let henriettaKindredCardTimer = null;
 
   // rAF handles for the narrative arc layers. drawNarrativeArcs uses
   // 'narrative-arcs-glow' / 'narrative-arcs'; the second-tier function
@@ -95,6 +117,43 @@
   // visible.
   let narrativeFirstLineData = [];
   let narrativeSecondLineData = [];
+
+  // --- Beat 2 subway draw/undraw animation ---
+  // subwayAnimFrame holds the rAF for whichever pass (draw or undraw) is
+  // currently running. subwayUndrawTimer is the 1s wait between the two.
+  // subwayLineData is the per-frame line-segment array — kept at module
+  // scope so renderSubwayLines() can re-emit it on each frame.
+  // subwayLinesData is the network-fetched trunk-line geometry (array of
+  // { name, color, coords }); null until fetchSubwayLines completes.
+  let subwayAnimFrame = null;
+  let subwayUndrawTimer = null;
+  let subwayLineData = [];
+  let subwayLinesData = null;
+
+  // --- Beat 4/5 Henrietta + LGBTQ web state ---
+  // The Henrietta + LGBTQ highlight dots are rendered as Mapbox circle
+  // layers with constellation-star paint properties (radius/blur driven
+  // per-frame via setPaintProperty). Only the rainbow arcs ride on
+  // deckInstance via renderAllNarrativeLayers.
+  let lgbtqDotAnimFrame = null;        // post-wave radius pulse rAF
+  // Per-wave setTimeout handles for drawLgbtqDots — cleared by clearLgbtqDots
+  // so a teardown mid-stagger can't queue further setData calls.
+  let lgbtqWaveTimers = [];
+  let henriettaHighlightTimer = null;  // 1s delay before highlight starts
+  let lgbtqDotsTimer = null;           // 2.5s delay before dots draw
+  let rainbowArcsAnimFrame = null;
+  let rainbowArcsSecondAnimFrame = null;
+  let rainbowLineData = [];
+  // Henrietta-highlight rAF lives separately so the pulse keeps running
+  // while drawLgbtqDots animates the dot fade-in in parallel.
+  let henriettaHighlightAnimFrame = null;
+  // Tropicana highlight rAF — Beat 7 (n===6) star at the Tropicana
+  // location, cleared on Beat 8 entry and in exitNarrative.
+  let tropicanaHighlightAnimFrame = null;
+
+  // Exposed for narrative beats so Beat 5 can reuse the same selection
+  // Beat 4 picked, without re-running selectLgbtqPlaces().
+  window.lgbtqPlaces = null;
 
   // --- Beat 3 constellation interaction state ---
   let constellationWebAnimFrame = null;
@@ -315,6 +374,681 @@
         constellationTimers.push(timer);
       }
     });
+  }
+
+  // --- Beat 2 subway lines ---
+  // Progressive polyline draw on the shared window.deckInstance. Two deck
+  // layers per render: a wide low-alpha glow + the main thin line. We share
+  // the canvas with the narrative arc layers, but the subway runs only
+  // during Beat 2 (before any arcs draw at Beat 4), so there's no overlap.
+
+  function renderSubwayLines() {
+    if (!window.deckInstance) return;
+    // Each segment carries its own alpha (set by buildSubwaySegments). The
+    // glow layer scales proportionally to the main line's alpha so both
+    // fade together during undraw.
+    try {
+      window.deckInstance.setProps({
+        layers: [
+          new deck.LineLayer({
+            id: 'subway-lines-glow',
+            data: subwayLineData,
+            getSourcePosition: (d) => d.path[0],
+            getTargetPosition: (d) => d.path[1],
+            getColor: (d) => [d.color[0], d.color[1], d.color[2], Math.round(30 * d.alpha / 180)],
+            getWidth: 6,
+            widthUnits: 'pixels',
+          }),
+          new deck.LineLayer({
+            id: 'subway-lines',
+            data: subwayLineData,
+            getSourcePosition: (d) => d.path[0],
+            getTargetPosition: (d) => d.path[1],
+            getColor: (d) => [d.color[0], d.color[1], d.color[2], d.alpha],
+            getWidth: 2,
+            widthUnits: 'pixels',
+          }),
+        ],
+      });
+    } catch (e) {}
+  }
+
+  // Fetch real subway-line geometry from /data/mta.json.
+  async function fetchSubwayLines() {
+    try {
+      const res = await fetch('./data/mta.json');
+      const geojson = await res.json();
+      const features = (geojson.features || []).slice(0, 15);
+
+      // Flatten each feature's geometry into a single coord array so each
+      // gets its own animated trace. MultiLineString segments are
+      // concatenated end-to-end — visually fine for the Beat 2 draw/undraw
+      // pass since the gaps between adjacent boroughs read as one stroke.
+      // Colors cycle through STAR_PALETTE by feature index.
+      const lines = [];
+      features.forEach((feature, i) => {
+        if (!feature || !feature.geometry) return;
+        const geom = feature.geometry;
+        const color = STAR_PALETTE[i % STAR_PALETTE.length];
+        if (geom.type === 'LineString') {
+          lines.push({ coords: geom.coordinates, color });
+        } else if (geom.type === 'MultiLineString') {
+          // Each sub-line animates independently so there are no jumps across gaps
+          geom.coordinates.forEach((seg) => {
+            if (seg.length >= 2) lines.push({ coords: seg, color });
+          });
+        }
+      });
+      subwayLinesData = lines;
+    } catch (e) {}
+  }
+
+  // Builds segments for ONE line between two fractional positions along its
+  // polyline. Walking segment by segment lets a partial start AND a partial
+  // end coexist, which we need for both draw (0 → t) and undraw (t → 1).
+  function buildSubwaySegments(coords, startFrac, endFrac, alpha, color) {
+    const a = alpha == null ? 180 : alpha;
+    const c = color || [255, 255, 255];
+    const out = [];
+    if (!coords || coords.length < 2) return out;
+    if (endFrac <= startFrac) return out;
+
+    const totalSegs = coords.length - 1;
+    const sFloat = Math.max(0, startFrac) * totalSegs;
+    const eFloat = Math.min(1, endFrac) * totalSegs;
+
+    for (let i = 0; i < totalSegs; i++) {
+      const segStart = i;
+      const segEnd = i + 1;
+      const lo = Math.max(sFloat, segStart);
+      const hi = Math.min(eFloat, segEnd);
+      if (hi <= lo) continue;
+      const p0 = coords[i];
+      const p1 = coords[i + 1];
+      const fracLo = lo - segStart;
+      const fracHi = hi - segStart;
+      const start = [p0[0] + (p1[0] - p0[0]) * fracLo, p0[1] + (p1[1] - p0[1]) * fracLo];
+      const end = [p0[0] + (p1[0] - p0[0]) * fracHi, p0[1] + (p1[1] - p0[1]) * fracHi];
+      out.push({ path: [start, end], color: c, alpha: a });
+    }
+    return out;
+  }
+
+  function drawSubwayLines() {
+    if (!window.deckInstance) return;
+    if (subwayAnimFrame !== null) {
+      cancelAnimationFrame(subwayAnimFrame);
+      subwayAnimFrame = null;
+    }
+    if (subwayUndrawTimer !== null) {
+      clearTimeout(subwayUndrawTimer);
+      subwayUndrawTimer = null;
+    }
+    const DURATION = 3000;
+    const startTime = performance.now();
+
+    function frame(now) {
+      const t = Math.min(1, (now - startTime) / DURATION);
+      const eased = 1 - Math.pow(1 - t, 2);
+      const out = [];
+      for (const line of subwayLinesData) {
+        // Each line grows from its start point (0 → eased).
+        const segs = buildSubwaySegments(line.coords, 0, eased, 180, line.color);
+        for (const s of segs) out.push(s);
+      }
+      subwayLineData = out;
+      renderSubwayLines();
+      if (t < 1) {
+        subwayAnimFrame = requestAnimationFrame(frame);
+      } else {
+        subwayAnimFrame = null;
+        // Hold the fully-drawn grid for 1s, then start the undraw pass.
+        subwayUndrawTimer = setTimeout(() => {
+          subwayUndrawTimer = null;
+          undrawSubwayLines();
+        }, 1000);
+      }
+    }
+    subwayAnimFrame = requestAnimationFrame(frame);
+  }
+
+  // Wipe-forward undraw: the head of each line shrinks while the tail
+  // remains, mirroring the direction of the draw. As undrawFrac walks
+  // 0 → 1, each line shows segments from (undrawFrac, 1) — the start
+  // disappears first, the end disappears last.
+  function undrawSubwayLines() {
+    if (!window.deckInstance) return;
+    if (!subwayLinesData || subwayLinesData.length === 0) return;
+    if (subwayAnimFrame !== null) {
+      cancelAnimationFrame(subwayAnimFrame);
+      subwayAnimFrame = null;
+    }
+    const DURATION = 2000;
+    const startTime = performance.now();
+
+    function frame(now) {
+      const t = Math.min(1, (now - startTime) / DURATION);
+      const eased = 1 - Math.pow(1 - t, 2);
+      const out = [];
+      for (const line of subwayLinesData) {
+        // Visible portion is (eased, 1] — the start fraction climbs while
+        // the end stays pinned at the polyline's last point.
+        const segs = buildSubwaySegments(line.coords, eased, 1, 180, line.color);
+        for (const s of segs) out.push(s);
+      }
+      subwayLineData = out;
+      renderSubwayLines();
+      if (t < 1) {
+        subwayAnimFrame = requestAnimationFrame(frame);
+      } else {
+        subwayAnimFrame = null;
+        subwayLineData = [];
+        try { window.deckInstance.setProps({ layers: [] }); } catch (e) {}
+      }
+    }
+    subwayAnimFrame = requestAnimationFrame(frame);
+  }
+
+  function clearSubwayLines() {
+    if (subwayAnimFrame !== null) {
+      cancelAnimationFrame(subwayAnimFrame);
+      subwayAnimFrame = null;
+    }
+    if (subwayUndrawTimer !== null) {
+      clearTimeout(subwayUndrawTimer);
+      subwayUndrawTimer = null;
+    }
+    // Only nuke deck layers if subway is actually showing — otherwise we'd
+    // also wipe whatever the narrative beats have drawn (arcs etc.) on the
+    // shared deck canvas.
+    if (subwayLineData.length > 0) {
+      subwayLineData = [];
+      try { window.deckInstance.setProps({ layers: [] }); } catch (e) {}
+    }
+  }
+
+  // --- Beat 4/5 LGBTQ web ---
+  // Filter the dataset to LGBTQ+ tagged places (excluding Henrietta itself),
+  // then bucket into an 8×8 lat/lng grid and pick the highest-review-count
+  // place from each bucket round-robin until we hit `count`. Geographic
+  // spread is more visually striking than top-N-by-reviews, which would
+  // cluster everything in Manhattan/Williamsburg.
+  function selectLgbtqPlaces(count) {
+    const fb = window.featuresById;
+    if (!fb) { window.lgbtqPlaces = []; return []; }
+
+    const candidates = [];
+    for (const place of fb.values()) {
+      if (!place || place.id === HENRIETTA_ID) continue;
+      if (!Array.isArray(place.coordinates) || place.coordinates.length !== 2) continue;
+      const ct = place.community_tags || {};
+      if (ct.dfs_lgbtq_owned === true || ct.dfs_lgbtq_welcoming === true || ct.lgbtq_primary === true) {
+        candidates.push(place);
+      }
+    }
+    if (candidates.length === 0) { window.lgbtqPlaces = []; return []; }
+
+    let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    for (const p of candidates) {
+      const [lng, lat] = p.coordinates;
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }
+    const GRID = 8;
+    const cellLng = (maxLng - minLng) / GRID || 1;
+    const cellLat = (maxLat - minLat) / GRID || 1;
+    const buckets = new Map();
+    for (const p of candidates) {
+      const [lng, lat] = p.coordinates;
+      const cx = Math.min(GRID - 1, Math.floor((lng - minLng) / cellLng));
+      const cy = Math.min(GRID - 1, Math.floor((lat - minLat) / cellLat));
+      const key = cx + ',' + cy;
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(p);
+    }
+    for (const bucket of buckets.values()) {
+      bucket.sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
+    }
+    const selected = [];
+    const bucketList = Array.from(buckets.values());
+    while (selected.length < count) {
+      let added = false;
+      for (const bucket of bucketList) {
+        if (bucket.length === 0) continue;
+        selected.push(bucket.shift());
+        added = true;
+        if (selected.length >= count) break;
+      }
+      if (!added) break;
+    }
+    window.lgbtqPlaces = selected;
+    return selected;
+  }
+
+  // Single combined setProps call so the highlight pulse + dot fade + arc
+  // draw can all coexist on deckInstance without one frame's render wiping
+  // another's layers. The order here matches the visual stack (back→front):
+  // rainbow arcs → LGBTQ dots → Henrietta highlight.
+  function renderAllNarrativeLayers() {
+    if (!window.deckInstance) return;
+    const layers = [];
+
+    if (rainbowLineData.length > 0) {
+      layers.push(new deck.LineLayer({
+        id: 'rainbow-arcs-glow',
+        data: rainbowLineData,
+        getSourcePosition: (d) => d.path[0],
+        getTargetPosition: (d) => d.path[1],
+        // Fixed warm-gold glow under every rainbow arc — per-arc colors
+        // live in the foreground line layer below; the glow reads as a
+        // uniform constellation halo regardless of arc hue.
+        getColor: () => [255, 224, 102, 45],
+        getWidth: 4,
+        widthUnits: 'pixels',
+      }));
+      // The post-draw pulse mutates each segment's color[3] in place (and
+      // hands renderAllNarrativeLayers a fresh array reference so deck.gl
+      // re-extracts the color buffer), so we can read d.color straight here.
+      layers.push(new deck.LineLayer({
+        id: 'rainbow-arcs',
+        data: rainbowLineData,
+        getSourcePosition: (d) => d.path[0],
+        getTargetPosition: (d) => d.path[1],
+        getColor: (d) => d.color,
+        getWidth: 1.5,
+        widthUnits: 'pixels',
+      }));
+    }
+
+    // The Henrietta + LGBTQ highlight dots live on Mapbox circle layers
+    // (constellation-star paint props) rather than deck.gl scatterplots —
+    // see startHenriettaHighlight, drawLgbtqDots, and startTropicanaHighlight.
+
+    try { window.deckInstance.setProps({ layers }); } catch (e) {}
+  }
+
+  // Henrietta highlight — a Mapbox circle layer styled like a constellation
+  // star (warm-white fill, blur 1.2, emissive 1) so it reads as part of the
+  // sky rather than as a distinct deck.gl marker. The radius pulses between
+  // 6 and 10px via setPaintProperty in the rAF, matching the sine cadence
+  // of pulseTick. Runs continuously until stopHenriettaHighlight().
+  function startHenriettaHighlight() {
+    if (!map) return;
+    if (henriettaHighlightAnimFrame !== null) return;
+
+    if (!map.getSource('henrietta-highlight')) {
+      map.addSource('henrietta-highlight', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: HENRIETTA_COORDS },
+          properties: {},
+        },
+      });
+    }
+    if (!map.getLayer('henrietta-highlight-glow')) {
+      map.addLayer({
+        id: 'henrietta-highlight-glow',
+        type: 'circle',
+        source: 'henrietta-highlight',
+        paint: {
+          'circle-radius': 10,
+          'circle-color': 'rgb(255, 249, 196)',
+          'circle-blur': 0.5,
+          'circle-emissive-strength': 1,
+          'circle-opacity': 0.85,
+          'circle-stroke-width': 0,
+        },
+      });
+    }
+    if (!map.getLayer('henrietta-highlight-layer')) {
+      map.addLayer({
+        id: 'henrietta-highlight-layer',
+        type: 'circle',
+        source: 'henrietta-highlight',
+        paint: {
+          'circle-radius': 18,
+          'circle-color': 'rgb(255, 249, 196)',
+          'circle-blur': 1.8,
+          'circle-emissive-strength': 1,
+          'circle-opacity': STAR_OPACITY,
+          'circle-stroke-width': 0,
+        },
+      });
+    }
+
+    const startTime = performance.now();
+    function frame(now) {
+      const t = ((now - startTime) / 1000) * Math.PI;
+      const r = 18 + Math.sin(t) * 4; // pulses 6..10
+      try { map.setPaintProperty('henrietta-highlight-layer', 'circle-radius', r); } catch (e) {}
+      henriettaHighlightAnimFrame = requestAnimationFrame(frame);
+    }
+    henriettaHighlightAnimFrame = requestAnimationFrame(frame);
+  }
+  function stopHenriettaHighlight() {
+    if (henriettaHighlightAnimFrame !== null) {
+      cancelAnimationFrame(henriettaHighlightAnimFrame);
+      henriettaHighlightAnimFrame = null;
+    }
+    if (map) {
+      try {
+        if (map.getLayer('henrietta-highlight-glow')){map.removeLayer('henrietta-highlight-glow');}
+        if (map.getLayer('henrietta-highlight-layer')) {map.removeLayer('henrietta-highlight-layer');}
+        if (map.getSource('henrietta-highlight')) {map.removeSource('henrietta-highlight');}
+      } catch (e) {}
+    }
+  }
+
+  // Tropicana highlight — same constellation-star look as Henrietta (radius
+  // 6..10 pulse, warm-white, blur 1.2, emissive 1). Added in Beat 7 right
+  // after the Tropicana card appears so the user sees a single bright star
+  // at the destination before the kindred arcs start fanning out.
+  function startTropicanaHighlight() {
+    if (!map) return;
+    if (tropicanaHighlightAnimFrame !== null) return;
+
+    if (!map.getSource('tropicana-highlight')) {
+      map.addSource('tropicana-highlight', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: TROPICANA_COORDS },
+          properties: {},
+        },
+      });
+    }
+
+    if (!map.getLayer('tropicana-highlight-glow')) {
+      map.addLayer({
+        id: 'tropicana-highlight-glow',
+        type: 'circle',
+        source: 'tropicana-highlight',
+        paint: {
+          'circle-radius': 10,
+          'circle-color': 'rgb(255, 249, 196)',
+          'circle-blur': 0.5,
+          'circle-emissive-strength': 1,
+          'circle-opacity': 0.85,
+          'circle-stroke-width': 0,
+        },
+      });
+    }
+    if (!map.getLayer('tropicana-highlight-layer')) {
+      map.addLayer({
+        id: 'tropicana-highlight-layer',
+        type: 'circle',
+        source: 'tropicana-highlight',
+        paint: {
+          'circle-radius': 18,
+          'circle-color': 'rgb(255, 249, 196)',
+          'circle-blur': 1.8,
+          'circle-emissive-strength': 1,
+          'circle-opacity': STAR_OPACITY,
+          'circle-stroke-width': 0,
+        },
+      });
+    }
+
+    const startTime = performance.now();
+    function frame(now) {
+      const t = ((now - startTime) / 1000) * Math.PI;
+      const r = 18 + Math.sin(t) * 4; // pulses 6..10
+      try { map.setPaintProperty('tropicana-highlight-layer', 'circle-radius', r); } catch (e) {}
+      tropicanaHighlightAnimFrame = requestAnimationFrame(frame);
+    }
+    tropicanaHighlightAnimFrame = requestAnimationFrame(frame);
+  }
+
+  function clearTropicanaHighlight() {
+    if (tropicanaHighlightAnimFrame !== null) {
+      cancelAnimationFrame(tropicanaHighlightAnimFrame);
+      tropicanaHighlightAnimFrame = null;
+    }
+    if (map) {
+      try {
+        if (map.getLayer('tropicana-highlight-glow')){map.removeLayer('tropicana-highlight-glow');}
+        if (map.getLayer('tropicana-highlight-layer')) { map.removeLayer('tropicana-highlight-layer');}
+        if (map.getSource('tropicana-highlight')) {map.removeSource('tropicana-highlight');}
+      } catch (e) {}
+    }
+  }
+
+  // 5 waves of dots, 500ms apart. Each wave appends to a single Mapbox
+  // GeoJSON source via setData(); the two circle layers above it (main +
+  // glow) carry constellation paint props so each new dot reads as a star
+  // that just lit up. Once all waves are in, the main layer's radius
+  // pulses 5..8 via setPaintProperty, mirroring pulseTick.
+  function drawLgbtqDots(places, onComplete) {
+    if (!map) { if (onComplete) onComplete(); return; }
+    // Cancel any in-flight pass — both the wave timers and the post-wave
+    // pulse rAF.
+    lgbtqWaveTimers.forEach(clearTimeout);
+    lgbtqWaveTimers = [];
+    if (lgbtqDotAnimFrame !== null) {
+      cancelAnimationFrame(lgbtqDotAnimFrame);
+      lgbtqDotAnimFrame = null;
+    }
+    if (!Array.isArray(places) || places.length === 0) {
+      if (onComplete) onComplete();
+      return;
+    }
+    window.lgbtqPlaces = places;
+
+    const features = places.map((p) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: p.coordinates },
+      properties: {},
+    }));
+
+    // Source + layers set up once; subsequent waves only call setData.
+    if (!map.getSource('lgbtq-highlight')) {
+      map.addSource('lgbtq-highlight', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    } else {
+      try {
+        map.getSource('lgbtq-highlight').setData({ type: 'FeatureCollection', features: [] });
+      } catch (e) {}
+    }
+    // Glow layer added first so the bright main star draws on top.
+    if (!map.getLayer('lgbtq-highlight-glow')) {
+      map.addLayer({
+        id: 'lgbtq-highlight-glow',
+        type: 'circle',
+        source: 'lgbtq-highlight',
+        paint: {
+          'circle-radius': 7,
+          'circle-color': 'rgb(255, 249, 196)',
+          'circle-blur': 0.5,
+          'circle-emissive-strength': 1,
+          'circle-opacity': 0.85,
+          'circle-stroke-width': 0,
+        },
+      });
+    }
+    if (!map.getLayer('lgbtq-highlight-layer')) {
+      map.addLayer({
+        id: 'lgbtq-highlight-layer',
+        type: 'circle',
+        source: 'lgbtq-highlight',
+        paint: {
+          'circle-radius': 14,
+          'circle-color': 'rgb(255, 249, 196)',
+          'circle-blur': 1.8,
+          'circle-emissive-strength': 1,
+          'circle-opacity': 0.8,
+          'circle-stroke-width': 0,
+        },
+      });
+    }
+
+    const WAVE_COUNT = 5;
+    const WAVE_STAGGER = 500;
+    const waveSize = Math.ceil(features.length / WAVE_COUNT);
+
+    for (let w = 0; w < WAVE_COUNT; w++) {
+      const timer = setTimeout(() => {
+        if (!map.getSource('lgbtq-highlight')) return;
+        const subset = features.slice(0, Math.min(features.length, (w + 1) * waveSize));
+        try {
+          map.getSource('lgbtq-highlight').setData({
+            type: 'FeatureCollection',
+            features: subset,
+          });
+        } catch (e) {}
+      }, w * WAVE_STAGGER);
+      lgbtqWaveTimers.push(timer);
+    }
+
+    const pulseStart = setTimeout(() => {
+      startLgbtqDotPulse();
+      if (onComplete) onComplete();
+    }, WAVE_COUNT * WAVE_STAGGER);
+    lgbtqWaveTimers.push(pulseStart);
+  }
+
+  // Radius pulse 5..8 on lgbtq-highlight-layer once all waves are in. Same
+  // sine pattern as pulseTick; the glow layer keeps its fixed 12px radius
+  // so the breathing comes from the bright inner star alone.
+  function startLgbtqDotPulse() {
+    if (!map) return;
+    if (lgbtqDotAnimFrame !== null) {
+      cancelAnimationFrame(lgbtqDotAnimFrame);
+      lgbtqDotAnimFrame = null;
+    }
+    const startTime = performance.now();
+    function pulseFrame(now) {
+      const t = ((now - startTime) / 1500) * Math.PI;
+      const r = 14 + Math.sin(t) * 4; // 5..8
+      try { map.setPaintProperty('lgbtq-highlight-layer', 'circle-radius', r); } catch (e) {}
+      lgbtqDotAnimFrame = requestAnimationFrame(pulseFrame);
+    }
+    lgbtqDotAnimFrame = requestAnimationFrame(pulseFrame);
+  }
+
+  function clearLgbtqDots() {
+    lgbtqWaveTimers.forEach(clearTimeout);
+    lgbtqWaveTimers = [];
+    if (lgbtqDotAnimFrame !== null) {
+      cancelAnimationFrame(lgbtqDotAnimFrame);
+      lgbtqDotAnimFrame = null;
+    }
+    window.lgbtqPlaces = null;
+    if (map) {
+      try {
+        if (map.getLayer('lgbtq-highlight-layer')) map.removeLayer('lgbtq-highlight-layer');
+        if (map.getLayer('lgbtq-highlight-glow')) map.removeLayer('lgbtq-highlight-glow');
+        if (map.getSource('lgbtq-highlight')) map.removeSource('lgbtq-highlight');
+      } catch (e) {}
+    }
+  }
+
+  // Progressive arc draw over 2000ms — same point-by-point reveal pattern
+  // as drawNarrativeArcs, but each arc gets a random rainbow color with
+  // jittered alpha (180–230) so the bouquet feels organic rather than
+  // categorical.
+  function drawRainbowArcs(sourcePlace, targetPlaces, onComplete) {
+    if (!window.deckInstance || !sourcePlace || !Array.isArray(sourcePlace.coordinates)) {
+      if (onComplete) onComplete();
+      return;
+    }
+    if (rainbowArcsAnimFrame !== null) {
+      cancelAnimationFrame(rainbowArcsAnimFrame);
+      rainbowArcsAnimFrame = null;
+    }
+    const ARC_POINTS = 40;
+    const ARC_HEIGHT = 0.4;
+    const DURATION = 2000;
+
+    const arcPaths = (targetPlaces || [])
+      .filter((t) => t && Array.isArray(t.coordinates) && t.coordinates.length === 2)
+      .map((t) => {
+        const base = RAINBOW_ARC_COLORS[Math.floor(Math.random() * RAINBOW_ARC_COLORS.length)];
+        const alpha = 160 + Math.floor(Math.random() * 40); // 120..160
+        return {
+          points: sampleArcLocal(sourcePlace.coordinates, t.coordinates, ARC_HEIGHT, ARC_POINTS),
+          color: [base[0], base[1], base[2], alpha],
+        };
+      });
+
+    if (arcPaths.length === 0) {
+      if (onComplete) onComplete();
+      return;
+    }
+
+    const startTime = performance.now();
+    function frame(now) {
+      const t = Math.min(1, (now - startTime) / DURATION);
+      const eased = 1 - Math.pow(1 - t, 2);
+      const lineData = [];
+      arcPaths.forEach((arc) => {
+        const visibleCount = t >= 1
+          ? arc.points.length
+          : Math.max(2, Math.floor(eased * ARC_POINTS));
+        const visiblePoints = arc.points.slice(0, visibleCount);
+        for (let i = 0; i < visiblePoints.length - 1; i++) {
+          lineData.push({ path: [visiblePoints[i], visiblePoints[i + 1]], color: arc.color });
+        }
+      });
+      rainbowLineData = lineData;
+      renderAllNarrativeLayers();
+      if (t < 1) {
+        rainbowArcsAnimFrame = requestAnimationFrame(frame);
+      } else {
+        rainbowArcsAnimFrame = null;
+        startRainbowPulse();
+        if (onComplete) onComplete();
+      }
+    }
+    rainbowArcsAnimFrame = requestAnimationFrame(frame);
+  }
+
+  // Continuous breathing on the fully-drawn rainbow web. Alpha range
+  // 55..105 driven by Math.sin(Date.now()/1500). Mutates each segment's
+  // color[3] in place AND reassigns rainbowLineData to a fresh array each
+  // frame — both are needed: in-place keeps the closure-captured refs valid,
+  // the new array reference invalidates deck.gl's cached color buffer so it
+  // re-extracts.
+  function startRainbowPulse() {
+    if (rainbowArcsSecondAnimFrame !== null) {
+      cancelAnimationFrame(rainbowArcsSecondAnimFrame);
+      rainbowArcsSecondAnimFrame = null;
+    }
+    function pulseFrame() {
+      const alpha = Math.round(160 + 40 * Math.sin(Date.now() / 600));
+      for (const seg of rainbowLineData) {
+        seg.color[3] = alpha;
+      }
+      rainbowLineData = rainbowLineData.slice();
+      renderAllNarrativeLayers();
+      rainbowArcsSecondAnimFrame = requestAnimationFrame(pulseFrame);
+    }
+    rainbowArcsSecondAnimFrame = requestAnimationFrame(pulseFrame);
+  }
+
+  function clearRainbowArcs() {
+    if (rainbowArcsAnimFrame !== null) {
+      cancelAnimationFrame(rainbowArcsAnimFrame);
+      rainbowArcsAnimFrame = null;
+    }
+    if (rainbowArcsSecondAnimFrame !== null) {
+      cancelAnimationFrame(rainbowArcsSecondAnimFrame);
+      rainbowArcsSecondAnimFrame = null;
+    }
+    rainbowLineData = [];
+    renderAllNarrativeLayers();
+  }
+
+  // Called at Beat 6 entry. Stops all Beat 4/5 animations and emits a final
+  // empty setProps so the deck canvas is clear before Tropicana arcs draw.
+  function clearAllLgbtqLayers() {
+    stopHenriettaHighlight();
+    clearLgbtqDots();
+    clearRainbowArcs();
   }
 
   // --- Constellation interaction (Beat 3) ---
@@ -884,11 +1618,64 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     return (
-      '<div class="narrative-kindred-item">' +
+      '<div class="narrative-kindred-item" data-place-id="' + placeId + '">' +
         '<span class="narrative-kindred-dot" style="background:' + color + '"></span>' +
         '<span>' + safeName + '</span>' +
       '</div>'
     );
+  }
+
+  // Wires click handlers on the kindred list items so each item updates
+  // the right-side place card (name + soul summary) and re-centers the
+  // map on the clicked kindred place. Beat advance is suppressed by the
+  // overlay-click guard, which short-circuits on .narrative-kindred-item.
+  // The placeId argument is the *host* place whose kindred list this is —
+  // accepted for symmetry with show/hide calls; the actual click target
+  // is read from each item's data-place-id attribute.
+  function attachKindredCardInteraction(/* placeId */) {
+    if (!narrativeKindredCardEl) return;
+    const items = narrativeKindredCardEl.querySelectorAll('.narrative-kindred-item');
+    items.forEach((item) => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = item.getAttribute('data-place-id');
+        if (!id) return;
+        const place = lookupPlace(id);
+        if (!place) return;
+        if (narrativePlaceCardEl) {
+          const nameEl = narrativePlaceCardEl.querySelector('.narrative-place-name');
+          const soulEl = narrativePlaceCardEl.querySelector('.narrative-place-soul');
+          if (nameEl) nameEl.textContent = place.name || '';
+          if (soulEl) soulEl.textContent = place.soul_summary || '';
+        }
+        if (Array.isArray(place.coordinates) && map) {
+          const NYC_CENTER = [-73.98, 40.73];
+          const dx = NYC_CENTER[0] - place.coordinates[0];
+          const dy = NYC_CENTER[1] - place.coordinates[1];
+          const bearingToCenter = Math.atan2(dx, dy) * (180 / Math.PI);
+          map.easeTo({
+            center: place.coordinates,
+            zoom: map.getZoom(),
+            bearing: bearingToCenter,
+            duration: 2500,
+            easing: (t) => 1 - Math.pow(1 - t, 3),
+          });
+        }
+        items.forEach((other) => other.classList.remove('is-selected'));
+        item.classList.add('is-selected');
+      });
+    });
+  }
+
+  // Tears down only the second-tier narrative arcs (leaves the first-tier
+  // kindred bouquet intact). Used by the Tropicana web-toggle button.
+  function clearNarrativeSecondTierArcs() {
+    if (narrativeArcsSecondAnimFrame !== null) {
+      cancelAnimationFrame(narrativeArcsSecondAnimFrame);
+      narrativeArcsSecondAnimFrame = null;
+    }
+    narrativeSecondLineData = [];
+    renderNarrativeArcs();
   }
 
   function showNarrativeKindredCard(placeId) {
@@ -897,6 +1684,9 @@
       narrativeKindredCardEl.id = 'narrative-kindred-card';
       document.body.appendChild(narrativeKindredCardEl);
     }
+    // Stash the host place id so showNarrativeWebBadge can bind the
+    // toggle button to the right source for drawNarrativeSecondTierArcs.
+    narrativeKindredCardEl.dataset.placeId = placeId;
     const place = lookupPlace(placeId);
     const ids = (place && Array.isArray(place.similarity_ids))
       ? place.similarity_ids.slice(0, 8)
@@ -905,7 +1695,7 @@
     narrativeKindredCardEl.innerHTML =
       '<div class="narrative-kindred-header">' +
         '<span class="narrative-kindred-title">Kindred Places</span>' +
-        '<span class="narrative-web-badge">◎ Web active</span>' +
+        '<button class="narrative-web-badge" id="narrative-web-toggle">◎ Web active</button>' +
       '</div>' +
       itemsHtml;
     narrativeWebBadgeVisible = false;
@@ -919,6 +1709,28 @@
     if (!badge) return;
     badge.classList.add('is-visible');
     narrativeWebBadgeVisible = true;
+    // Wire the toggle once the badge becomes visible. The button is
+    // rebuilt on every showNarrativeKindredCard call (innerHTML replace),
+    // so the listener has to be attached after each (re)show.
+    const toggle = document.getElementById('narrative-web-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation(); // suppress beat advance
+        if (narrativeSecondLineData.length > 0) {
+          clearNarrativeSecondTierArcs();
+          toggle.classList.remove('is-active');
+          toggle.textContent = '◎ Web off';
+        } else {
+          const currentPlaceId = toggle.dataset.placeId || TROPICANA_ID;
+          drawNarrativeSecondTierArcs(currentPlaceId);
+          toggle.classList.add('is-active');
+          toggle.textContent = '◎ Web active';
+        }
+      });
+      // Remember which host place the toggle is bound to — Beat 7 wires
+      // this to TROPICANA_ID; future beats could rebind to other places.
+      toggle.dataset.placeId = narrativeKindredCardEl.dataset.placeId || TROPICANA_ID;
+    }
   }
 
   function hideNarrativeKindredCard() {
@@ -931,10 +1743,9 @@
   }
 
   function clearAllNarrativeBeatTimers() {
-    if (islandArcTimer) { clearTimeout(islandArcTimer); islandArcTimer = null; }
-    if (islandSecondTierTimer) { clearTimeout(islandSecondTierTimer); islandSecondTierTimer = null; }
-    if (strandKindredTimer) { clearTimeout(strandKindredTimer); strandKindredTimer = null; }
-    if (strandKindredCardTimer) { clearTimeout(strandKindredCardTimer); strandKindredCardTimer = null; }
+    if (henriettaHighlightTimer) { clearTimeout(henriettaHighlightTimer); henriettaHighlightTimer = null; }
+    if (henriettaKindredCardTimer) { clearTimeout(henriettaKindredCardTimer); henriettaKindredCardTimer = null; }
+    if (lgbtqDotsTimer) { clearTimeout(lgbtqDotsTimer); lgbtqDotsTimer = null; }
     if (tropicanaCardTimer) { clearTimeout(tropicanaCardTimer); tropicanaCardTimer = null; }
     if (tropicanaKindredTimer) { clearTimeout(tropicanaKindredTimer); tropicanaKindredTimer = null; }
     if (tropicanaKindredCardTimer) { clearTimeout(tropicanaKindredCardTimer); tropicanaKindredCardTimer = null; }
@@ -1072,7 +1883,7 @@
       } catch (e) {}
       map.easeTo({
         center: INITIAL_CENTER,
-        zoom: 10.5,
+        zoom: 11.1,
         pitch: INITIAL_PITCH,
         bearing: 0,
         duration: 2000,
@@ -1080,87 +1891,118 @@
     }
 
     else if (n === 2) {
+      const c = map.getCenter();
+      map.easeTo({ center: [c.lng, c.lat - 0.03], duration: 3000 });
+      // Constellation hint — prep the first 3 groups (visibility + fade-in
+      // transition) so revealGroup can actually animate them in, then
+      // stagger the reveals. constellationReveal() in Beat 3 redoes the
+      // full setup for all 20 groups, so any prep here is harmless.
+      [0, 1, 2].forEach((g) => {
+        const id = constellationLayerId(g);
+        try {
+          map.setLayoutProperty(id, 'visibility', 'visible');
+          map.setPaintProperty(id, 'circle-opacity-transition', { duration: FADE_IN_MS, delay: 0 });
+          map.setPaintProperty(id, 'circle-opacity', 0);
+        } catch (e) {}
+      });
+      constellationTimers.push(setTimeout(() => revealGroup(0), 500));
+      constellationTimers.push(setTimeout(() => revealGroup(1), 900));
+      constellationTimers.push(setTimeout(() => revealGroup(2), 1300));
+      // Subway lines fade in alongside the constellation hint.
+      setTimeout(() => drawSubwayLines(), 800);
     }
 
     else if (n === 3) {
       // No interaction this beat — just trigger the constellation reveal
       // and let it play through. PLACES_LAYER stays hidden.
+      clearSubwayLines();
       constellationReveal();
     }
 
     else if (n === 4) {
-      // Constellation stays visible (no fadeOut). Camera flies to Island
-      // NYC; arcs (first + second tier in cascade) draw 2800ms after the
-      // flyTo begins so they appear while the camera is still settling.
+      // Henrietta Hudson arrival. Constellation stays visible behind. After
+      // 1s the highlight dot starts pulsing on the bar's location; at 2.5s
+      // (while the camera is still settling) the 50-place LGBTQ web fades
+      // in across the city in 5 staggered waves.
       clearAllNarrativeBeatTimers();
       map.flyTo({
-        center: ISLAND_COORDS,
-        zoom: 11,
+        center: HENRIETTA_COORDS,
+        zoom: 16,
         pitch: 45,
-        bearing: 10,
-        duration: 2500,
+        bearing: 100,
+        duration: 5000,
       });
-      islandArcTimer = setTimeout(() => {
-        islandArcTimer = null;
-        drawNarrativeArcs(ISLAND_ID, () => {
-          drawNarrativeSecondTierArcs(ISLAND_ID);
-        });
-      }, 2800);
+      henriettaHighlightTimer = setTimeout(() => {
+        henriettaHighlightTimer = null;
+        startHenriettaHighlight();
+        // Same +1000ms beat as the highlight — the place card surfaces
+        // alongside the pulsing star so the user sees Henrietta's name
+        // and soul summary while the dots fade in around it.
+        showNarrativePlaceCard(HENRIETTA_ID, HENRIETTA_NAME);
+      }, 1000);
+      lgbtqDotsTimer = setTimeout(() => {
+        lgbtqDotsTimer = null;
+        const places = selectLgbtqPlaces(50);
+        drawLgbtqDots(places, () => {});
+      }, 2500);
     }
 
     else if (n === 5) {
-      // Wipe Beat 4's arcs, fly to Strand, show its card. No arcs yet.
-      clearNarrativeArcs();
+      // Rainbow arcs radiate from Henrietta to the same 50 places picked in
+      // Beat 4 (cached on window.lgbtqPlaces so the bouquet matches what
+      // the user just watched fade in). Camera pulls back to a city-wide
+      // view in parallel so the full web becomes visible. Beat 4's place
+      // card slides up to make room for the interactive kindred list.
       clearAllNarrativeBeatTimers();
-      map.flyTo({
-        center: STRAND_COORDS,
-        zoom: 16,
-        pitch: 45,
-        bearing: -20,
-        duration: 5000,
+      let places = window.lgbtqPlaces;
+      if (!places || !places.length) places = selectLgbtqPlaces(50);
+      const fb = window.featuresById;
+      const henrietta =
+        (fb && fb.get(HENRIETTA_ID)) ||
+        { coordinates: HENRIETTA_COORDS, id: HENRIETTA_ID, name: HENRIETTA_NAME };
+      if (window.innerWidth > 640) slideUpNarrativePlaceCard();
+      henriettaKindredCardTimer = setTimeout(() => {
+        henriettaKindredCardTimer = null;
+        showNarrativeKindredCard(HENRIETTA_ID);
+        attachKindredCardInteraction(HENRIETTA_ID);
+      }, 300);
+      drawRainbowArcs(henrietta, places, () => {});
+      map.easeTo({
+        center: [-73.98, 40.73],
+        zoom: 11,
+        pitch: INITIAL_PITCH,
+        bearing: 0,
+        duration: 3000,
       });
-      showNarrativePlaceCard(STRAND_ID, STRAND_NAME);
     }
 
     else if (n === 6) {
-      // Slide the Strand card up, pull camera back, draw Strand's
-      // kindred, then surface the kindred list card below.
-      if (window.innerWidth > 640) slideUpNarrativePlaceCard();
-      map.easeTo({
-        center: [-73.975, 40.74],
-        zoom: 12,
-        pitch: INITIAL_PITCH,
-        bearing: 60,
-        duration: 3500,
-      });
-      drawNarrativeArcs(STRAND_ID, () => {});
-      if (strandKindredCardTimer) clearTimeout(strandKindredCardTimer);
-      strandKindredCardTimer = setTimeout(() => {
-        strandKindredCardTimer = null;
-        showNarrativeKindredCard(STRAND_ID);
-      }, 300);
-    }
-
-    else if (n === 7) {
-      // Transition to Tropicana. Clean Strand state first.
+      // Transition to Tropicana. Wipe Beat 4/5 LGBTQ layers + any arcs
+      // before flying so the deck canvas is clean for Tropicana's arcs.
+      // (clearAllLgbtqLayers internally calls stopHenriettaHighlight, so
+      // no separate Henrietta-cleanup call is needed.)
+      clearAllLgbtqLayers();
       clearNarrativeArcs();
       hideNarrativeKindredCard();
       hideNarrativePlaceCard();
       clearAllNarrativeBeatTimers();
       map.flyTo({
         center: TROPICANA_COORDS,
-        zoom: 15,
-        pitch: 85,
+        zoom: 14,
+        pitch: 65,
         bearing: 210,
         duration: 3000,
       });
       tropicanaCardTimer = setTimeout(() => {
         tropicanaCardTimer = null;
         showNarrativePlaceCard(TROPICANA_ID, TROPICANA_NAME);
+        // Static highlight star at Tropicana — pulses 6..10 until the
+        // next beat clears it just before the kindred arcs draw.
+        startTropicanaHighlight();
       }, 500);
     }
 
-    else if (n === 8) {
+    else if (n === 7) {
       // Slide the Tropicana card up, draw its kindred, surface the
       // kindred list card, then a beat later add the "web active" badge
       // and draw the second-degree arcs.
@@ -1177,6 +2019,7 @@
       tropicanaKindredCardTimer = setTimeout(() => {
         tropicanaKindredCardTimer = null;
         showNarrativeKindredCard(TROPICANA_ID);
+        attachKindredCardInteraction(TROPICANA_ID);
       }, 300);
       if (tropicanaWebBadgeTimer) clearTimeout(tropicanaWebBadgeTimer);
       tropicanaWebBadgeTimer = setTimeout(() => {
@@ -1186,14 +2029,26 @@
       if (tropicanaSecondTierTimer) clearTimeout(tropicanaSecondTierTimer);
       tropicanaSecondTierTimer = setTimeout(() => {
         tropicanaSecondTierTimer = null;
-        drawNarrativeSecondTierArcs(TROPICANA_ID);
+        // The badge becomes clickable at +1800ms; if the user clicked
+        // during the 200ms gap before this auto-draw fires, they've
+        // already kicked off the same animation. Skip rather than
+        // re-trigger and cause a double-draw flash.
+        if (narrativeSecondLineData.length === 0 && narrativeArcsSecondAnimFrame === null) {
+          drawNarrativeSecondTierArcs(TROPICANA_ID);
+          const toggle = document.getElementById('narrative-web-toggle');
+          if (toggle) {
+            toggle.classList.add('is-active');
+            toggle.textContent = '◎ Web active';
+          }
+        }
       }, 2000);
     }
 
-    else if (n === 9) {
+    else if (n === 8) {
       // Finale: clear arcs + cards, pull camera back, reveal CTA. The
       // constellation stays visible behind the wide view.
       clearNarrativeArcs();
+      clearTropicanaHighlight();
       hideNarrativeKindredCard();
       hideNarrativePlaceCard();
       clearAllNarrativeBeatTimers();
@@ -1220,6 +2075,8 @@
     // Cancel every narrative beat timer + the narrative arc rAFs + both
     // right-side cards, before the rest of the cleanup runs.
     clearAllNarrativeBeatTimers();
+    clearSubwayLines();
+    clearAllLgbtqLayers();
     clearNarrativeArcs();
     hideNarrativePlaceCard();
     hideNarrativeKindredCard();
@@ -1239,7 +2096,7 @@
 
     map.easeTo({
       center: INITIAL_CENTER,
-      zoom: 11.5,
+      zoom: 11.1,
       pitch: INITIAL_PITCH,
       bearing: 0,
       duration: 5000,
@@ -1306,16 +2163,28 @@
       if (e.target.closest && (e.target.closest('#narrative-cta') || e.target.closest('#narrative-skip'))) {
         return;
       }
+      // Right-side cards + their controls are interactive surfaces from
+      // Beat 4 onward. Clicks land on these elements (or bubble up to the
+      // overlay) — guard the advance so users can browse the kindred
+      // list and toggle the web without skipping to the next beat.
+      if (e.target.closest && (
+        e.target.closest('#narrative-right-card') ||
+        e.target.closest('#narrative-kindred-card') ||
+        e.target.closest('.narrative-kindred-item') ||
+        e.target.closest('#narrative-web-toggle')
+      )) {
+        return;
+      }
       // Don't advance during Beat 3 interactive mode
       if (overlayEl.classList.contains('is-interactive')) return;
-      if (currentStep < 9) goToStep(currentStep + 1);
+      if (currentStep < 8) goToStep(currentStep + 1);
     });
 
     document.addEventListener('keydown', (e) => {
       if (!isNarrativeActive()) return;
       if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
         e.preventDefault();
-        if (currentStep < 9) goToStep(currentStep + 1);
+        if (currentStep < 8) goToStep(currentStep + 1);
       }
     });
   }
@@ -1323,6 +2192,11 @@
   function initNarrative(mapInstance) {
     if (!mapInstance) return;
     map = mapInstance;
+
+    // Kick off the subway-line fetch immediately. Beat 2 fires ~30s later
+    // so the data is almost certainly ready by then; drawSubwayLines() skips
+    // the animation cleanly if it isn't (or if the fetch failed).
+    fetchSubwayLines();
 
     if (safeGet(LS_KEY) === 'true') {
       document.body.classList.remove('narrative-active');

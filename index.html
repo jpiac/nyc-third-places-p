@@ -33,6 +33,7 @@
     <div class="app-subtitle">New York City's Community Soul</div>
     <button id="replay-narrative" onclick="replayNarrative()">Replay Intro</button>
     <button id="about-btn" onclick="toggleAbout()">About</button>
+    <button id="feedback-btn" onclick="openFeedbackModal()">Feedback</button>
   </header>
 
   <div id="loading"></div>
@@ -82,36 +83,30 @@
       </div>
       <div class="narrative-step" data-step="4">
         <div class="narrative-text">
+          <blockquote>'The city fosters art and is art; the city creates the theater and is the theater.'</blockquote>
+          <cite>&mdash; Lewis Mumford, 1937</cite>
           <p>Every place has a soul.</p>
-          <p class="narrative-sub">Mapped by the community. Described by the people who make the city what it is.</p>
         </div>
       </div>
       <div class="narrative-step" data-step="5">
         <div class="narrative-text">
-          <p>Places connect across the city &mdash; not by proximity,</p>
+          <p>Some places connect not just by social character &mdash; but by identity.</p>
         </div>
       </div>
       <div class="narrative-step" data-step="6">
-        <div class="narrative-text">
-          <p>But by the kindred social character they share.</p>
-        </div>
-      </div>
-      <div class="narrative-step" data-step="7">
         <div class="narrative-text">
           <p>Pull the threads and the whole city connects.</p>
           <p class="narrative-sub">From a bookstore in the Village to a nightclub in the Bronx.</p>
         </div>
       </div>
-      <div class="narrative-step" data-step="8">
+      <div class="narrative-step" data-step="7">
         <div class="narrative-text">
           <p>Activate the web to see how far connections spread.</p>
         </div>
       </div>
-      <div class="narrative-step" data-step="9">
+      <div class="narrative-step" data-step="8">
         <div class="narrative-text">
-          <p class="narrative-count">There are 12,780 social spaces across New York City. Find yours.</p>
-          <blockquote>"The city fosters art and is art; the city creates the theater and is the theater."</blockquote>
-          <cite>&mdash; Lewis Mumford, 1937</cite>
+          <p class="narrative-count">There are over 12,000 social spaces across New York City. Find yours.</p>
           <button id="narrative-cta">Explore the Map</button>
         </div>
       </div>
@@ -147,7 +142,7 @@
 
       <div class="about-section">
         <h3>The Data</h3>
-        <p>Each of the 12,780 places on this map was sourced from <strong>OpenStreetMap</strong>, the community-built map of the world, then enriched with ratings, reviews, and atmosphere data from the <strong>Google Places API</strong>. Additional data were gathered from a variety of sources to provide a more comprehensive view of each place, including <strong>NYC Department of City Planning</strong>, <strong>NYC Department of Small Business Services</strong>, business websites and more. Some community identity attributes (LGBTQ+ ownership, women-owned, wheelchair accessibility, etc.) were sourced from Google Business Profiles via DataForSEO.</p>
+        <p>Each of the 12,000+ places on this map was sourced from <strong>OpenStreetMap</strong>, the community-built map of the world, then enriched with ratings, reviews, and atmosphere data from the <strong>Google Places API</strong>. Additional data were gathered from a variety of sources to provide a more comprehensive view of each place, including <strong>NYC Department of City Planning</strong>, <strong>NYC Department of Small Business Services</strong>, business websites and more. Some community identity attributes (LGBTQ+ ownership, women-owned, wheelchair accessibility, etc.) were sourced from Google Business Profiles via DataForSEO.</p>
         <p>Soul summaries, short descriptions that capture each place's social character, were programatically generated via machine learning on the combined corpus of reviews, editorial summaries, place attributes, and website descriptions where available.</p>
       </div>
 
@@ -167,7 +162,9 @@
       <div class="about-section">
         <h3>A Note on Completeness</h3>
         <p>OpenStreetMap coverage varies across neighborhoods and place types. Some places may be missing, mislabeled, or have outdated information. Soul summaries reflect the reviews available at the time of generation and may not capture recent changes. Bias may be present in the Soul summaries and kindred connections based on input data and the weighting metrics.</p>
-        <p>Given the scale of the project, individual narratives may not represent the full diversity of experiences within each neighborhood. Missing or incomplete community identity tags, such as Black-owned or Latinx-owned, may be the result of limited self-reported information on Google Business Profiles.</p>
+        <p>Given the scale of the project, individual narratives may not represent the full diversity of experiences within each neighborhood. Missing or incomplete community identity tags, such as Black-owned or LGBTA+ Welcoming, may be the result of limited self-reported information on Google Business Profiles and other data sources.</p>
+        <p>This project is built on community data and input. If you find any information that is inaccurate or incomplete, please let us know by submitting a report through the map interface or by using the feedback form below.</p>
+        <button class="about-feedback-btn" onclick="openFeedbackModal()">Share feedback or corrections</button>
       </div>
 
       <div class="about-section about-sources">
@@ -178,6 +175,27 @@
           <a href="https://www.anthropic.com" target="_blank" rel="noopener">Anthropic Claude</a> &middot;
           <a href="https://www.mapbox.com" target="_blank" rel="noopener">Mapbox</a>
         </p>
+      </div>
+    </div>
+  </div>
+
+  <div id="feedback-modal" class="feedback-modal" aria-hidden="true">
+    <div class="feedback-modal-inner">
+      <button class="feedback-modal-close" onclick="closeFeedbackModal()">×</button>
+      <h3 class="feedback-modal-title" id="feedback-modal-title">Share Feedback</h3>
+      <p class="feedback-modal-subtitle" id="feedback-modal-subtitle">Help us improve The Third Place map.</p>
+      <textarea
+        id="feedback-text"
+        class="feedback-textarea"
+        placeholder="What would you like us to know?"
+        rows="5"
+      ></textarea>
+      <div class="feedback-modal-actions">
+        <button class="feedback-cancel-btn" onclick="closeFeedbackModal()">Cancel</button>
+        <button class="feedback-submit-btn" id="feedback-submit-btn" onclick="submitFeedback()">Submit</button>
+      </div>
+      <div id="feedback-success" class="feedback-success" style="display:none">
+        Thank you — your feedback has been received.
       </div>
     </div>
   </div>

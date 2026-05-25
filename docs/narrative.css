@@ -284,6 +284,10 @@ body.narrative-active .legend {
 #narrative-right-card.is-visible {
   opacity: 1;
   transform: translateX(0);
+  /* Restore hit-testing only once the card is on-screen — the base rule
+     keeps it off so the off-screen translateX(120%) state doesn't eat
+     map clicks at the right edge of the viewport. */
+  pointer-events: auto;
 }
 #narrative-right-card.is-slid-up {
   /* Apply alongside .is-visible — combines with translateX(0) into a
@@ -314,6 +318,10 @@ body.narrative-active .legend {
 }
 #narrative-kindred-card.is-visible {
   opacity: 1;
+  /* Restore hit-testing only once the card is on-screen — same reasoning
+     as #narrative-right-card.is-visible. Without this the kindred items
+     receive no clicks and beat-advance fires through them. */
+  pointer-events: auto;
 }
 
 .narrative-place-name {
@@ -354,14 +362,43 @@ body.narrative-active .legend {
 .narrative-web-badge.is-visible {
   opacity: 1;
 }
+/* Web badge is rendered as a <button> from Beat 7 onward so it can toggle
+   the second-tier arcs on/off. Strip the browser defaults so it visually
+   matches the original span. */
+button.narrative-web-badge {
+  background: transparent;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+button.narrative-web-badge:hover {
+  opacity: 0.8;
+}
 .narrative-kindred-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 0;
+  padding: 3px 6px;
+  margin: 0 -6px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.85);
+  cursor: default;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+/* Items rendered with a data-place-id are wired up by
+   attachKindredCardInteraction — clicking re-centers the map and updates
+   the right-side place card. */
+.narrative-kindred-item[data-place-id] {
+  cursor: pointer;
+}
+.narrative-kindred-item[data-place-id]:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.narrative-kindred-item.is-selected {
+  background: rgba(255, 249, 196, 0.15);
 }
 .narrative-kindred-dot {
   width: 8px;
