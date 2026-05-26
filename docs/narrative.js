@@ -192,12 +192,31 @@
     try { map.setConfigProperty('basemap', 'lightPreset', preset); } catch(e) {}
   }
 
+  // Defer to main.js's full theme application (light preset + road
+  // colors + circle strokes) when leaving the narrative. Falls back to
+  // a bare lightPreset call if main.js hasn't loaded yet (defensive —
+  // narrative.js runs before main.js in the script order, but
+  // applyMapTheme is assigned synchronously when main.js is parsed).
+  function applyPostNarrativeTheme() {
+    let saved = null;
+    try { saved = localStorage.getItem('map_theme'); } catch (e) {}
+    // Default-night matches main.js's initTheme default.
+    const theme = saved === 'day' ? 'day' : 'night';
+    if (typeof window.applyMapTheme === 'function') {
+      window.applyMapTheme(theme);
+    } else {
+      setLightPreset(theme);
+    }
+  }
+
   function applyExplorationConfig() {
+    // Road colors are now owned by main.js's applyMapTheme (day = white,
+    // night = transparent) so this helper only needs to turn place
+    // labels back on. Without this gap, the narrative's
+    // resetExplorationConfig (labels off + transparent roads) would
+    // persist into the exploration phase.
     try {
       map.setConfigProperty('basemap', 'showPlaceLabels', true);
-      map.setConfigProperty('basemap', 'colorMotorways', '#ffffff');
-      map.setConfigProperty('basemap', 'colorTrunks', '#ffffff');
-      map.setConfigProperty('basemap', 'colorRoads', '#ffffff');
     } catch(e) {}
   }
 
@@ -2065,8 +2084,8 @@
       clearAllNarrativeBeatTimers();
       const beat4Path = [
         { t: 0.0,  center: [-73.95, 40.7],     zoom: 11.1, pitch: 40, bearing: 0   },
-        { t: 0.33, center: [-73.99498, 40.71287], zoom: 14.3, pitch: 70, bearing: 0  },
-        { t: 0.75,  center: [-74.00608, 40.732055], zoom: 15.4, pitch: 70, bearing: 0 },
+        { t: 0.33, center: [-73.99498, 40.71287], zoom: 15, pitch: 70, bearing: 0  },
+        { t: 0.75,  center: [-74.00608, 40.732055], zoom: 15.7, pitch: 70, bearing: 0 },
         { t: 1.0,  center: HENRIETTA_COORDS,    zoom: 16, pitch: 76, bearing: 40 },
       ];
       animateCameraPath(beat4Path, 10000, () => {});
@@ -2237,8 +2256,11 @@
     document.body.classList.remove('narrative-active');
     hidePlaceCard();
 
-    setLightPreset('day');
+    // Default to night on narrative exit (or honor the user's saved
+    // preference if they previously toggled to day). main.js owns the
+    // road-color + stroke + lightPreset bundle via applyMapTheme.
     applyExplorationConfig();
+    applyPostNarrativeTheme();
 
     map.easeTo({
       center: INITIAL_CENTER,
@@ -2346,8 +2368,11 @@
 
     if (safeGet(LS_KEY) === 'true') {
       document.body.classList.remove('narrative-active');
-      setLightPreset('day');
       applyExplorationConfig();
+      // initTheme in main.js fires later in the boot sequence and will
+      // re-apply the full theme; this call covers the gap before that
+      // runs so the basemap doesn't flash through a stale state.
+      applyPostNarrativeTheme();
       return;
     }
 

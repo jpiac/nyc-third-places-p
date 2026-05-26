@@ -88,8 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const COLOR_BY_TYPE = {
   cafe: '#E07A5F',
-  bar: '#3D405B',
-  pub: '#3D405B',
+  bar: '#4b5182',
+  pub: '#4b5182',
   library: '#81B29A',
   community_centre: '#F2CC8F',
   social_facility: '#F2CC8F',
@@ -335,6 +335,27 @@ const FILTER_OPACITY_EXPR = [
   'case',
   ['boolean', ['feature-state', 'filter_matched'], false], 0.9,
   0.1,
+];
+
+// Circle-stroke-color expressions for places-circles-main. The two
+// variants are swapped on the fly by applyMapTheme — the day variant
+// is the original treatment (light stroke as a default halo over a
+// light basemap, dark stroke on hover/selected to pop). The night
+// variant is the inversion: a near-black stroke that blends with the
+// dark basemap so every dot doesn't read as a "halo'd star", and a
+// bright white stroke on hover/selected so the cursor target stands
+// out from the field.
+const PLACES_STROKE_DAY = [
+  'case',
+  ['boolean', ['feature-state', 'selected'], false], '#1a1a1a',
+  ['boolean', ['feature-state', 'hover'], false], 'rgba(0,0,0,0.55)',
+  'rgba(255,255,255,0.85)',
+];
+const PLACES_STROKE_NIGHT = [
+  'case',
+  ['boolean', ['feature-state', 'selected'], false], 'rgba(255,255,255,0.95)',
+  ['boolean', ['feature-state', 'hover'], false], 'rgba(255,255,255,0.85)',
+  'rgba(10,10,18,0.6)',
 ];
 
 // Community tag filter mode state. Driven by clicks on the community
@@ -2021,25 +2042,86 @@ function applyMapTheme(theme) {
   const isNight = theme === 'night';
   document.body.classList.toggle('theme-night', isNight);
   if (map) {
-    try { map.setConfigProperty('basemap', 'lightPreset', isNight ? 'night' : 'day'); } catch (e) {}
+    try {
+      // Basemap light preset: shifts the entire Mapbox style into the
+      // 'night' / 'day' lighting condition. Buildings, water, parks all
+      // pick up the new ambient.
+      map.setConfigProperty('basemap', 'lightPreset', isNight ? 'night' : 'day');
+      // Road colors per the visual brief: hidden in night (the lit dots
+      // become the focal field), white in day (visible grid that frames
+      // the dot positions). These overrides win over the basemap style's
+      // own road colors regardless of lightPreset.
+      if (isNight) {
+        map.setConfigProperty('basemap', 'colorMotorways', 'rgb(42, 56, 100)');
+        map.setConfigProperty('basemap', 'colorTrunks', 'rgb(42, 56, 100)');
+        map.setConfigProperty('basemap', 'colorRoads', 'rgb(42, 56, 100)');
+      } else {
+        map.setConfigProperty('basemap', 'colorMotorways', '#ffffff');
+        map.setConfigProperty('basemap', 'colorTrunks', '#ffffff');
+        map.setConfigProperty('basemap', 'colorRoads', '#ffffff');
+      }
+    } catch (e) {}
+    // Invert the main layer's stroke palette so hover/selected reads as
+    // the brighter accent in both themes (default→hover is "dim→light"
+    // in night, "light→dim" in day).
+    try {
+      map.setPaintProperty(
+        'places-circles-main',
+        'circle-stroke-color',
+        isNight ? PLACES_STROKE_NIGHT : PLACES_STROKE_DAY
+      );
+    } catch (e) {}
   }
   const icon = document.getElementById('theme-toggle-icon');
   // ☾ = invitation to night (currently day); ☼ = invitation to day (currently night).
   if (icon) icon.textContent = isNight ? '☼' : '☾';
 }
+// Exposed so narrative.js can apply the user's theme on narrative exit
+// (and on the return-visitor skip path) instead of forcing 'day'.
+window.applyMapTheme = applyMapTheme;
 function initTheme() {
   const toggle = document.getElementById('theme-toggle');
   if (!toggle) return;
   let saved = null;
   try { saved = localStorage.getItem(THEME_STORAGE_KEY); } catch (e) {}
-  // Default to day. Narrative will still force night while it's
-  // playing; once the user exits, the persisted pref (or default) wins.
-  const initial = saved === 'night' ? 'night' : 'day';
+  // Default to night — the narrative ends on night, and the map's
+  // cinematic look is the night basemap with lit-up dots. Day is opt-in.
+  const initial = saved === 'day' ? 'day' : 'night';
   applyMapTheme(initial);
   toggle.addEventListener('click', () => {
     const next = document.body.classList.contains('theme-night') ? 'day' : 'night';
     try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch (e) {}
     applyMapTheme(next);
+  });
+}
+
+// 3D objects toggle — flips the Mapbox Standard style's `show3dObjects`
+// config, which controls 3D buildings, landmarks, and terrain
+// extrusions. The cinematic night basemap leans heavily on the 3D
+// massing so the default is on; clicking flattens the map to 2D.
+const THREE_D_STORAGE_KEY = 'map_3d_objects';
+function apply3dObjects(enabled) {
+  if (map) {
+    try {
+      map.setConfigProperty('basemap', 'show3dObjects', !!enabled);
+    } catch (e) {}
+  }
+  const btn = document.getElementById('three-d-toggle');
+  if (btn) btn.classList.toggle('is-active', !!enabled);
+}
+function init3dToggle() {
+  const btn = document.getElementById('three-d-toggle');
+  if (!btn) return;
+  let saved = null;
+  try { saved = localStorage.getItem(THREE_D_STORAGE_KEY); } catch (e) {}
+  // Default to on. Persist explicit 'off' so the absence of the key
+  // (first visit, or never toggled) still reads as enabled.
+  const initial = saved !== 'off';
+  apply3dObjects(initial);
+  btn.addEventListener('click', () => {
+    const next = !btn.classList.contains('is-active');
+    try { localStorage.setItem(THREE_D_STORAGE_KEY, next ? 'on' : 'off'); } catch (e) {}
+    apply3dObjects(next);
   });
 }
 
@@ -2385,6 +2467,7 @@ async function initMap() {
   initSearch();
   initLegend();
   initTheme();
+  init3dToggle();
 
   function onCircleMouseEnter(e) {
   if (!e.features.length) return;

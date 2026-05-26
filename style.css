@@ -337,6 +337,7 @@ html, body {
   letter-spacing: 0.08em;
   font-weight: 600;
   color: var(--text-muted);
+  margin-top: 14px;
   margin-bottom: 8px;
 }
 .legend-item {
@@ -373,11 +374,6 @@ html, body {
   letter-spacing: 0.02em;
 }
 
-/* Legend toggle — header row above .legend-content. Collapses the body
-   via max-height + opacity transitions; initLegend() collapses it by
-   default on viewports <= 640px. */
-/* Legend top row — holds the Places collapse/expand toggle on the left
-   and the day/night theme toggle on the right. */
 .legend-top {
   display: flex;
   align-items: center;
@@ -392,7 +388,6 @@ html, body {
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 0;
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
@@ -412,11 +407,11 @@ html, body {
   justify-content: center;
   width: 26px;
   height: 26px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--accent);
   border-radius: 50%;
   background: transparent;
   cursor: pointer;
-  color: var(--text);
+  color: var(--accent);
   padding: 0;
   font: inherit;
   line-height: 1;
@@ -425,10 +420,55 @@ html, body {
 .theme-toggle:hover {
   border-color: var(--accent);
   color: var(--accent);
+  filter: brightness(0.85);
 }
 .theme-toggle-icon {
   font-size: 14px;
   line-height: 1;
+}
+/* Horizontal row inside legend-content that holds the theme + 3D
+   toggles side by side. */
+.legend-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+/* 3D objects toggle — same circular silhouette as the theme toggle so
+   the two read as a paired control. Inherits .theme-toggle base by
+   sharing the same dimensions/border treatment via this rule. The
+   .is-active state lights up when 3D is on (default); clicking flips
+   to the dim "off" look. */
+.three-d-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.three-d-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.three-d-toggle.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+.three-d-toggle.is-active:hover {
+  filter: brightness(0.85);
 }
 .legend-toggle-icon {
   font-size: 26px;
