@@ -1466,6 +1466,11 @@ function openSidebar(placeId) {
   const place = featuresById.get(placeId);
   if (!place) return;
 
+  if (unfadeMainAnimFrame !== null) {
+    cancelAnimationFrame(unfadeMainAnimFrame);
+    unfadeMainAnimFrame = null;
+  }
+
   setSelected(placeId);
   if (activeFilterTag) {
     clearKindredLines();
