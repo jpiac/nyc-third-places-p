@@ -201,7 +201,7 @@
     let saved = null;
     try { saved = localStorage.getItem('map_theme'); } catch (e) {}
     // Default-night matches main.js's initTheme default.
-    const theme = saved === 'day' ? 'day' : 'night';
+    const theme = saved === 'night' ? 'night' : 'day';
     if (typeof window.applyMapTheme === 'function') {
       window.applyMapTheme(theme);
     } else {

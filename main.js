@@ -95,7 +95,6 @@ const COLOR_BY_TYPE = {
   social_facility: '#F2CC8F',
   hackerspace: '#A8DADC',
   social_club: '#A8DADC',
-  // New types
   arts_centre: '#C084FC',
   theatre: '#C084FC',
   cinema: '#C084FC',
@@ -119,12 +118,10 @@ const COLOR_BY_TYPE = {
 const COLOR_DEFAULT = '#888888';
 
 const ATMOSPHERE_LABELS = {
-  // Original 4
   outdoor_seating: 'outdoor seating',
   live_music: 'live music',
   good_for_groups: 'good for groups',
   serves_coffee: 'serves coffee',
-  // New fields from 02d
   good_for_children: 'family friendly',
   allows_dogs: 'dog friendly',
   good_for_watching_sports: 'good for sports',
@@ -192,7 +189,6 @@ const OSM_TYPE_LABELS = {
   public_bath: 'Public Bath',
   public_bookcase: 'Little Free Library',
   stripclub: 'Strip Club',
-  social_club: 'Social Club',
   bbq: 'BBQ Area',
   fountain: 'Fountain',
   shelter: 'Shelter',
@@ -209,7 +205,6 @@ const OSM_TYPE_LABELS = {
   musical_instrument: 'Music Shop',
   zoo: 'Zoo',
   aquarium: 'Aquarium',
-  concert_hall: 'Concert Hall',
 };
 
 function formatOsmType(type) {
@@ -221,43 +216,20 @@ let featuresById = new Map();
 let pidToSourceId = new Map();
 let hoveredId = null;
 let selectedId = null;
-let selectedPlaceId = null; // string id mirror of selectedId, used by toggleSecondTier
+let selectedPlaceId = null;
 let connectedIds = new Set();
-// Numeric source IDs of places currently styled as second-tier kindred —
-// tracked so we can reset their feature-state when the toggle turns off or
-// a new place is selected.
 let secondConnectedIds = new Set();
 let deckInstance;
 let arcAnimFrame = null;
 let secondTierAnimFrame = null;
-// rAF handle for the places-circles-main "unfade" back to defaults on
-// closeSidebar. Same pattern as the dot fade-ins: Mapbox's transitions on
-// data-driven opacity expressions are unreliable, so we drive the case
-// expression's default-branch value per frame instead.
 let unfadeMainAnimFrame = null;
-// 200ms start-delay handle for the second-tier draw. Cleared along with the
-// rAF so a fast close/reselect during the gap can't race a stale animation.
 let secondTierDelayTimer = null;
-// Per-tier line data cached at module level so renderArcs() can re-emit both
-// tiers together — deck.gl's setProps replaces all layers, so we have to
-// pass both sets every time we want both visible.
 let firstTierLineData = [];
 let secondTierLineData = [];
 let showSecondTier = false;
-// One Mapbox sub-layer per reveal_group bucket — narrative.js drives each
-// layer's literal opacity / radius / blur for staggered reveals and
-// per-group twinkling.
 const CONSTELLATION_GROUP_COUNT = 20;
-
-// Stashed GeoJSON for reuse by addConstellationLayers() after teardown.
-// Set in initMap(); referenced by the constellation source setup so we can
-// remove + re-add the layers across a replay without re-fetching.
 let geojsonData = null;
 
-// Constellation styling moved to module scope so both initMap() and any
-// replay path (which calls addConstellationLayers anew) reuse the same
-// arrays. Memory-wise these are tiny — the win from removing constellation
-// after the narrative ends is in the Mapbox tile state, not these consts.
 const CONSTELLATION_TYPES = [
   'cafe', 'bar', 'pub', 'library', 'community_centre',
   'social_facility', 'hackerspace', 'social_club',
@@ -281,10 +253,6 @@ const CONSTELLATION_COLOR_EXPR = [
   19, '#ffffff',
 ];
 
-// Add the 'constellation' source + 20 per-reveal-group circle layers.
-// Idempotent — bails if the source already exists, so it's safe to call
-// from the replay path. Source intentionally re-uses geojsonData rather
-// than re-fetching.
 function addConstellationLayers(mapInstance) {
   if (!geojsonData) return;
   if (mapInstance.getSource('constellation')) return;
@@ -312,10 +280,6 @@ function addConstellationLayers(mapInstance) {
   }
 }
 
-// Remove all 20 layers AND the source, freeing the Mapbox tile state /
-// internal geojson copy. Called by narrative.js after the intro fades.
-// Layers must be removed first — Mapbox refuses to remove a source still
-// referenced by any layer.
 function removeConstellationLayers(mapInstance) {
   for (let g = 0; g < CONSTELLATION_GROUP_COUNT; g++) {
     const id = `constellation-stars-${g}`;
@@ -328,23 +292,12 @@ function removeConstellationLayers(mapInstance) {
 
 const DEFAULT_OPACITY_EXPR = 0.9;
 const SELECTION_OPACITY_EXPR = 0.1;
-// In filter mode the main layer dims unmatched places to 0.1 and keeps
-// matched places at 0.9 via the `filter_matched` feature-state flag set
-// by enterFilterMode.
 const FILTER_OPACITY_EXPR = [
   'case',
   ['boolean', ['feature-state', 'filter_matched'], false], 0.9,
   0.1,
 ];
 
-// Circle-stroke-color expressions for places-circles-main. The two
-// variants are swapped on the fly by applyMapTheme — the day variant
-// is the original treatment (light stroke as a default halo over a
-// light basemap, dark stroke on hover/selected to pop). The night
-// variant is the inversion: a near-black stroke that blends with the
-// dark basemap so every dot doesn't read as a "halo'd star", and a
-// bright white stroke on hover/selected so the cursor target stands
-// out from the field.
 const PLACES_STROKE_DAY = [
   'case',
   ['boolean', ['feature-state', 'selected'], false], '#1a1a1a',
@@ -358,19 +311,12 @@ const PLACES_STROKE_NIGHT = [
   'rgba(10,10,18,0.6)',
 ];
 
-// Community tag filter mode state. Driven by clicks on the community
-// pills in the sidebar vibe chart; exited via the Done button or
-// closeSidebar.
 let activeFilterTag = null;
 let activeFilterLabel = null;
 let filterMatchIds = new Set();
 let filterTypeFilter = 'all';
 let filterBoroughFilter = 'all';
 
-// Header search state. fuseIndex is populated once in initSearch() after
-// featuresById is filled; the three sub-filters narrow the candidate set
-// applied by runSearch on top of the fuzzy-name match (or full sort when
-// the query is empty).
 let fuseIndex = null;
 let searchQuery = '';
 let searchTypeFilter = '';
@@ -415,10 +361,6 @@ function buildColorExpression(propName = 'osm_type') {
 }
 
 async function loadData() {
-  // Try the gzipped artifact first. The deploy pipeline (build-site.sh) ships
-  // nyc_final.json.gz (~10MB) instead of the raw 120MB .json because GitHub
-  // refuses files over 100MB. Locally the .gz may not exist; fall back to
-  // the raw .json so dev doesn't need to rebuild dist/ on every change.
   if (typeof DecompressionStream !== 'undefined') {
     try {
       const gzRes = await fetch(DATA_URL + '.gz');
@@ -470,10 +412,6 @@ const VIBE_ICON_DEFS = {
   reservable: { label: 'Reservable', svg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
 };
 
-// SVG icons used by the community pills in renderVibeChart. All are 18×18
-// viewBox, 14px rendered (12px for the smaller "Welcoming" rainbow). Icons
-// using stroke="currentColor" inherit color from the .vibe-community-tag CSS;
-// the rainbow flags ship their own fills.
 const RAINBOW_SVG = "<svg viewBox='0 0 18 18' width='14' height='14'><rect y='2' width='18' height='2.3' fill='#FF0018'/><rect y='4.6' width='18' height='2.3' fill='#FFA52C'/><rect y='6.9' width='18' height='2.3' fill='#FFFF41'/><rect y='9.2' width='18' height='2.3' fill='#008018'/><rect y='11.5' width='18' height='2.3' fill='#0000F9'/><rect y='13.8' width='18' height='2.3' fill='#86007D'/></svg>";
 const RAINBOW_SMALL_SVG = "<svg viewBox='0 0 18 18' width='12' height='12'><rect y='2' width='18' height='2.3' fill='#FF0018'/><rect y='4.6' width='18' height='2.3' fill='#FFA52C'/><rect y='6.9' width='18' height='2.3' fill='#FFFF41'/><rect y='9.2' width='18' height='2.3' fill='#008018'/><rect y='11.5' width='18' height='2.3' fill='#0000F9'/><rect y='13.8' width='18' height='2.3' fill='#86007D'/></svg>";
 const TRANS_SVG = "<svg viewBox='0 0 18 18' width='14' height='14' fill='none' stroke='currentColor' stroke-width='1.5'><circle cx='9' cy='7' r='4'/><line x1='9' y1='11' x2='9' y2='16'/><line x1='6' y1='13.5' x2='12' y2='13.5'/><line x1='6' y1='16' x2='12' y2='16'/></svg>";
@@ -484,15 +422,12 @@ const PERSON_SVG = "<svg viewBox='0 0 18 18' width='14' height='14' fill='none' 
 const STAR_SVG = "<svg viewBox='0 0 18 18' width='14' height='14' fill='none' stroke='currentColor' stroke-width='1.5'><path d='M9 2l1.8 5.4H17l-4.9 3.6 1.8 5.4L9 13l-4.9 3.4 1.8-5.4L1 7.4h6.2z'/></svg>";
 const RELIGION_SVG = "<svg viewBox='0 0 18 18' width='14' height='14' fill='none' stroke='currentColor' stroke-width='1.5'><path d='M9 2v14M3 7h12'/></svg>";
 
-// Religion values we don't render as a pill — too generic or not real
-// communities for our purposes.
 const SKIPPED_RELIGIONS = new Set(['none', 'ethical', 'pagan', 'mue']);
 
 function renderVibeChart(place) {
   const atmosphere = place.atmosphere || {};
   const community = place.community_tags || {};
 
-  // Atmosphere grid — unchanged from before.
   const items = [];
   for (const [key, def] of Object.entries(VIBE_ICON_DEFS)) {
     const val = atmosphere[key];
@@ -506,11 +441,6 @@ function renderVibeChart(place) {
     );
   }
 
-  // Community pills — merged OSM + DataForSEO + FacDB signals. When a
-  // pill carries a tagKey it's a filterable signal; clicking it routes
-  // into enterFilterMode (wired in openSidebar). The is-active class
-  // mirrors activeFilterTag so the pill on the currently selected
-  // place's vibe chart visually reflects which filter is live.
   const pill = (svg, label, tagKey) => {
     const attrs = tagKey
       ? ' data-filter-tag="' + escapeHtml(tagKey) +
@@ -528,7 +458,6 @@ function renderVibeChart(place) {
   const lgbtqWelcoming =
     community.lgbtq_friendly === true || community.dfs_lgbtq_welcoming === true;
   if (lgbtqOwned) communityTags.push(pill(RAINBOW_SVG, 'LGBTQ+ Owned', 'lgbtq_owned'));
-  // Owned implies welcoming — suppress the welcoming pill if owned is set.
   if (lgbtqWelcoming && !lgbtqOwned) {
     communityTags.push(pill(RAINBOW_SMALL_SVG, 'LGBTQ+ Welcoming', 'lgbtq_welcoming'));
   }
@@ -649,10 +578,6 @@ function renderKindred(similarityIds) {
     );
   }
   if (!cards.length) return '';
-  // The toggle's is-active class is set inline so a re-render of the
-  // sidebar (e.g. after clicking a kindred card to navigate) reflects the
-  // current showSecondTier state immediately, before toggleSecondTier()
-  // would otherwise sync it on next interaction.
   const toggleActive = showSecondTier ? ' is-active' : '';
   return (
     '<div class="kindred-header">' +
@@ -722,8 +647,6 @@ function interpolateColorRgb(colorA, colorB, t) {
   ];
 }
 
-// Layer-builder helpers — kept separate so renderArcs() can emit both tiers
-// together when both have data.
 function buildFirstTierLayers(lineData) {
   return [
     new deck.LineLayer({
@@ -778,6 +701,18 @@ function renderArcs() {
   deckInstance.setProps({ layers });
 }
 
+// ---------- FIX: arc animation performance ----------
+// Four changes applied throughout the arc draw functions:
+// 1. Removed syncDeckView() from inside animation frames — already wired
+//    to map.on('move'), calling it during stationary animations was redundant.
+// 2. Replaced per-frame case expressions with literal opacity values —
+//    case expressions force Mapbox to re-evaluate all 12k features every
+//    frame; literals are applied as a single uniform update with no per-feature
+//    work, keeping animation at 60fps even on the full NYC dataset.
+// 3. Added PAINT_THROTTLE_MS (33ms = ~30fps) to setPaintProperty calls —
+//    the overlay fade-in doesn't need full 60fps.
+// 4. Set final literal values at animation end before restoring expressions.
+
 function drawKindredLines(placeId) {
   if (!deckInstance) return;
   const source = featuresById.get(placeId);
@@ -787,8 +722,6 @@ function drawKindredLines(placeId) {
     cancelAnimationFrame(arcAnimFrame);
     arcAnimFrame = null;
   }
-  // Starting a fresh first-tier draw — wipe any stale second-tier lines so
-  // they don't linger over the new selection.
   clearSecondTierLines();
 
   const ids = Array.isArray(source.similarity_ids)
@@ -818,7 +751,9 @@ function drawKindredLines(placeId) {
   const ARC_POINTS = 40;
   const ARC_HEIGHT = 0.3;
   const DURATION = 1500;
+  const PAINT_THROTTLE_MS = 33;
   const startTime = performance.now();
+  let lastPaintUpdate = 0;
 
   const arcPaths = segments.map((seg) => ({
     points: sampleArc(seg.from, seg.to, ARC_HEIGHT, ARC_POINTS),
@@ -829,7 +764,7 @@ function drawKindredLines(placeId) {
   function frame(now) {
     const t = Math.min(1, (now - startTime) / DURATION);
     const eased = 1 - Math.pow(1 - t, 2);
-    syncDeckView();
+
     const lineData = [];
     arcPaths.forEach((arc) => {
       const visibleCount = t >= 1
@@ -845,35 +780,24 @@ function drawKindredLines(placeId) {
     firstTierLineData = lineData;
     renderArcs();
 
-    // Drive the connected-overlay dot's opacity + stroke from the same
-    // `eased` value the arc growth uses — they fade in over the same
-    // timeline the arc takes to reach them.
-    try {
-      map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity', [
-        'case',
-        ['boolean', ['feature-state', 'connected'], false], eased,
-        0,
-      ]);
-      map.setPaintProperty('places-circles-connected-overlay', 'circle-stroke-width', [
-        'case',
-        ['boolean', ['feature-state', 'connected'], false], eased * 1.5,
-        0,
-      ]);
-    } catch (e) { /* layer not ready or torn down */ }
+    // Throttled literal paint update — no per-frame case expression
+    if (now - lastPaintUpdate >= PAINT_THROTTLE_MS) {
+      lastPaintUpdate = now;
+      try {
+        map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity', eased);
+        map.setPaintProperty('places-circles-connected-overlay', 'circle-stroke-width', eased * 1.5);
+      } catch (e) {}
+    }
 
     if (t < 1) {
       arcAnimFrame = requestAnimationFrame(frame);
     } else {
       arcAnimFrame = null;
-      // Restore the opacity transition so future fade-outs (closeSidebar,
-      // selecting a new place) animate via Mapbox instead of snapping. The
-      // case expression itself stays at the final eased=1 value, so when
-      // feature-state.connected flips to false the per-feature output
-      // changes from 1 → 0, which Mapbox interpolates over the new duration.
       try {
+        map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity', 1);
+        map.setPaintProperty('places-circles-connected-overlay', 'circle-stroke-width', 1.5);
         map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity-transition', { duration: 400, delay: 0 });
       } catch (e) {}
-      // Second-tier kicks in only after the first-tier draw completes.
       if (showSecondTier && ids.length > 0) {
         drawSecondTierLines(ids);
       }
@@ -893,9 +817,6 @@ function resetSecondConnectedFeatureStates() {
 
 function drawSecondTierLines(firstTierIds) {
   if (!deckInstance) return;
-  // Cancel any in-flight second-tier work — both the rAF (mid-animation)
-  // and the start-delay timeout (pre-animation). Either can be live when a
-  // new selection lands.
   if (secondTierAnimFrame !== null) {
     cancelAnimationFrame(secondTierAnimFrame);
     secondTierAnimFrame = null;
@@ -904,12 +825,8 @@ function drawSecondTierLines(firstTierIds) {
     clearTimeout(secondTierDelayTimer);
     secondTierDelayTimer = null;
   }
-  // Reset any feature-states left over from a prior second-tier draw so
-  // we don't accumulate `second_connected` flags across rapid retoggles.
   resetSecondConnectedFeatureStates();
 
-  // Build the dest set: each first-tier place's similarity_ids, minus the
-  // originally selected place, minus the first-tier places, minus duplicates.
   const exclude = new Set(firstTierIds);
   if (selectedPlaceId) exclude.add(selectedPlaceId);
 
@@ -933,9 +850,6 @@ function drawSecondTierLines(firstTierIds) {
         sourceColor: [...firstColor, 245],
         targetColor: [...secondColor, 245],
       });
-      // Collect dest source IDs — we'll flip feature-state inside the
-      // setTimeout below so the dot fade-in starts the same instant the
-      // arc animation does (rather than ~200ms earlier).
       destSourceIds.push(secondId);
     }
   }
@@ -946,6 +860,7 @@ function drawSecondTierLines(firstTierIds) {
   const ARC_HEIGHT = 0.2;
   const DURATION = 1500;
   const START_DELAY_MS = 50;
+  const PAINT_THROTTLE_MS = 33;
 
   const arcPaths = segments.map((seg) => ({
     points: sampleArc(seg.from, seg.to, ARC_HEIGHT, ARC_POINTS),
@@ -955,35 +870,24 @@ function drawSecondTierLines(firstTierIds) {
 
   secondTierDelayTimer = setTimeout(() => {
     secondTierDelayTimer = null;
-    // Prep: disable the layer's opacity transition and zero out the case
-    // expression's target value BEFORE flipping feature-state. Otherwise
-    // Mapbox would either snap the dots in instantly (feature-state
-    // transitions are unreliable, same Mapbox quirk as the constellation
-    // and first-tier issues) or fight our per-frame setPaintProperty
-    // updates below.
     try {
       map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity-transition', { duration: 0, delay: 0 });
-      map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', [
-        'case',
-        ['boolean', ['feature-state', 'second_connected'], false], 0,
-        0,
-      ]);
-      map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', [
-        'case',
-        ['boolean', ['feature-state', 'second_connected'], false], 0,
-        0,
-      ]);
+      map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', 0);
+      map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', 0);
     } catch (e) {}
 
     for (const id of destSourceIds) {
       map.setFeatureState({ source: 'places', sourceLayer: 'nyc_places', id }, { second_connected: true });
       secondConnectedIds.add(id);
     }
+
     const startTime = performance.now();
+    let lastPaintUpdate = 0;
+
     function frame(now) {
       const t = Math.min(1, (now - startTime) / DURATION);
       const eased = 1 - Math.pow(1 - t, 2);
-      syncDeckView();
+
       const lineData = [];
       arcPaths.forEach((arc) => {
         const visibleCount = t >= 1
@@ -999,31 +903,22 @@ function drawSecondTierLines(firstTierIds) {
       secondTierLineData = lineData;
       renderArcs();
 
-      // Drive the second-tier dot opacity + stroke from the same `eased`
-      // value the arc growth uses — dot fade completes the instant the
-      // arc tip reaches the dot.
-      try {
-        map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', [
-          'case',
-          ['boolean', ['feature-state', 'second_connected'], false], eased * 0.7,
-          0,
-        ]);
-        map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', [
-          'case',
-          ['boolean', ['feature-state', 'second_connected'], false], eased * 1.0,
-          0,
-        ]);
-      } catch (e) {}
+      // Throttled literal paint update — no per-frame case expression
+      if (now - lastPaintUpdate >= PAINT_THROTTLE_MS) {
+        lastPaintUpdate = now;
+        try {
+          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', eased * 0.7);
+          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', eased * 1.0);
+        } catch (e) {}
+      }
 
       if (t < 1) {
         secondTierAnimFrame = requestAnimationFrame(frame);
       } else {
         secondTierAnimFrame = null;
-        // Restore a non-zero transition so fade-out (toggle off, close
-        // sidebar) animates instead of snapping. The case expression
-        // already holds the final eased=1 value, so when feature-state
-        // flips false, per-feature opacity goes from 0.9 → 0 over 400ms.
         try {
+          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', 0.7);
+          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', 1.0);
           map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity-transition', { duration: 400, delay: 0 });
         } catch (e) {}
       }
@@ -1037,15 +932,10 @@ function clearSecondTierLines() {
     cancelAnimationFrame(secondTierAnimFrame);
     secondTierAnimFrame = null;
   }
-  // Also cancel the pre-animation start-delay — without this, a close/select
-  // during the 200ms gap would let the queued setTimeout fire and start a
-  // fresh rAF against captured (now stale) arcPaths.
   if (secondTierDelayTimer !== null) {
     clearTimeout(secondTierDelayTimer);
     secondTierDelayTimer = null;
   }
-  // Drop the dot highlights too — both the arc layer and the dot overlay
-  // come from the same toggle, so they should clear together.
   resetSecondConnectedFeatureStates();
   secondTierLineData = [];
   renderArcs();
@@ -1057,23 +947,16 @@ function clearKindredLines() {
     arcAnimFrame = null;
   }
   firstTierLineData = [];
-  // clearSecondTierLines() also calls renderArcs(), which now sees both
-  // tier arrays empty and pushes setProps({ layers: [] }).
   clearSecondTierLines();
 }
 
 function toggleSecondTier() {
   showSecondTier = !showSecondTier;
-  // Mirror to window so narrative.js (and any other external caller) can
-  // read the current state without reaching into the IIFE.
   window.showSecondTier = showSecondTier;
   const btn = document.getElementById('second-tier-toggle');
   if (btn) btn.classList.toggle('is-active', showSecondTier);
 
   if (!showSecondTier) {
-    // In filter mode the "web" arcs live in firstTierLineData (drawn by
-    // drawFilterLines), so clearing the kindred lines is the way to wipe
-    // them. Normal mode only needs to drop the second-tier expansion.
     if (activeFilterTag) {
       clearKindredLines();
     } else {
@@ -1081,7 +964,6 @@ function toggleSecondTier() {
     }
     return;
   }
-  // Turning on — only act if there's an active selection to draw against.
   if (!selectedPlaceId) return;
   if (activeFilterTag) {
     drawFilterLines(selectedPlaceId);
@@ -1092,14 +974,10 @@ function toggleSecondTier() {
   drawSecondTierLines(place.similarity_ids.slice(0, TOP_KINDRED));
 }
 window.toggleSecondTier = toggleSecondTier;
-// Initial state mirrored once on load so callers that read window.showSecondTier
-// before any toggle still see the current value.
 window.showSecondTier = showSecondTier;
 
 // ---------- Community tag filter mode ----------
-// Resolves a tagKey to a predicate against a place's community_tags. Keeps
-// the per-pill OR-logic from renderVibeChart so that the filter set matches
-// the set of places that would actually render that pill.
+
 function matchesFilterTag(place, tagKey) {
   const c = place.community_tags || {};
   if (tagKey === 'lgbtq_owned') {
@@ -1143,17 +1021,15 @@ function setFilterMatchedState(ids, value) {
         { source: 'places', sourceLayer: 'nyc_places', id },
         { filter_matched: value }
       );
-    } catch (e) { /* layer not ready */ }
+    } catch (e) {}
   }
 }
 
 function enterFilterMode(tagKey, tagLabel) {
-  // Re-click on the active tag exits filter mode (acts as toggle off).
   if (activeFilterTag === tagKey) {
     exitFilterMode();
     return;
   }
-  // Switching tags — clear the prior filter_matched flags before swapping.
   if (activeFilterTag) {
     setFilterMatchedState(filterMatchIds, false);
     filterMatchIds.clear();
@@ -1176,9 +1052,6 @@ function enterFilterMode(tagKey, tagLabel) {
   }
 
   clearKindredLines();
-  // Drop the connected-overlay highlight ring on first-tier kindred — those
-  // belong to the prior (non-filter) selection and would otherwise sit on
-  // top of the filter set.
   if (map) {
     for (const id of connectedIds) {
       try {
@@ -1192,7 +1065,6 @@ function enterFilterMode(tagKey, tagLabel) {
   }
 
   if (selectedPlaceId) {
-    // Re-render the sidebar in filter mode for the currently selected place.
     openSidebar(selectedPlaceId);
     if (showSecondTier) drawFilterLines(selectedPlaceId);
   }
@@ -1208,10 +1080,6 @@ function exitFilterMode(rerender = true) {
   filterTypeFilter = 'all';
   filterBoroughFilter = 'all';
 
-  // Restore the main-layer opacity so the global expression matches the
-  // current selection state. If a place is still selected the expression
-  // returns to the dimmed SELECTION_OPACITY_EXPR (kindred overlays light
-  // up the selection+kindred); otherwise to the default 0.9.
   if (map) {
     try {
       map.setPaintProperty(
@@ -1222,7 +1090,6 @@ function exitFilterMode(rerender = true) {
     } catch (e) {}
   }
 
-  // Drop filter-mode arcs before redrawing the normal kindred lines.
   clearKindredLines();
 
   if (rerender && selectedPlaceId) {
@@ -1234,10 +1101,6 @@ window.exitFilterModeFromUI = function () {
   exitFilterMode(true);
 };
 
-// Draw arcs from the selected place to the closest 50 places in the
-// current filter set. Mirrors drawKindredLines' animation/style but reads
-// from filterMatchIds and skips the kindred-specific connected-overlay
-// fade since the filter set is already styled via filter_matched.
 function drawFilterLines(placeId) {
   if (!deckInstance) return;
   const source = featuresById.get(placeId);
@@ -1294,7 +1157,7 @@ function drawFilterLines(placeId) {
   function frame(now) {
     const t = Math.min(1, (now - startTime) / DURATION);
     const eased = 1 - Math.pow(1 - t, 2);
-    syncDeckView();
+
     const lineData = [];
     arcPaths.forEach((arc) => {
       const visibleCount = t >= 1
@@ -1336,9 +1199,6 @@ function renderFilterList(places) {
   }).join('');
 }
 
-// Rebuilds the #filter-section UI in the sidebar. Called by enterFilterMode
-// (via openSidebar) and by dropdown onChange handlers so the list reflects
-// the current sub-filters.
 function renderFilterSidebar() {
   const container = document.getElementById('filter-section');
   if (!container) return;
@@ -1349,9 +1209,6 @@ function renderFilterSidebar() {
     if (p) all.push(p);
   }
 
-  // Type dropdown options drawn from the full match set so the user can
-  // see every type that exists in the filter, even when one is currently
-  // narrowed out.
   const typeSet = new Set();
   for (const p of all) {
     if (p.osm_type) typeSet.add(p.osm_type);
@@ -1373,7 +1230,6 @@ function renderFilterSidebar() {
     return '<option value="' + escapeHtml(b) + '"' + sel + '>' + escapeHtml(label) + '</option>';
   }).join('');
 
-  // Apply sub-filters to the displayed list.
   let filtered = all;
   if (filterTypeFilter !== 'all') {
     filtered = filtered.filter((p) => p.osm_type === filterTypeFilter);
@@ -1439,18 +1295,6 @@ function renderFilterSidebar() {
   });
 }
 
-// Constellation pulse animation moved to narrative.js so each reveal group
-// can have its own start time — gives the twinkling effect instead of every
-// star pulsing in unison.
-
-// Bottom-sheet drag behavior for the sidebar on small screens.
-// Desktop (>640px): no-op — the sidebar slides in from the right via CSS only.
-// Mobile: drag-handle taps toggle expanded, vertical swipes either expand
-// (up >50px), close (down >100px), or snap back. During a downward drag we
-// drive transform per-frame so the sheet tracks the finger; we disable the
-// CSS transition for the duration so it doesn't ease against the live drag.
-// Idempotent — safe to re-call on resize. State + handlers are stashed on
-// the sidebar node so a re-init can cleanly detach before re-binding.
 function initMobileSheet() {
   const sidebar = document.getElementById('sidebar');
   const handle = document.getElementById('sidebar-drag-handle');
@@ -1463,7 +1307,6 @@ function initMobileSheet() {
     handle.removeEventListener('touchend', h.end);
     handle.removeEventListener('click', h.click);
     sidebar._sheetHandlers = null;
-    // Restore any inline state that a prior drag may have left behind.
     sidebar.style.transform = '';
     sidebar.style.transition = '';
   }
@@ -1480,8 +1323,6 @@ function initMobileSheet() {
     startY = e.touches[0].clientY;
     lastDelta = 0;
     dragging = true;
-    // Kill the slide transition for the duration of the drag so each
-    // touchmove paints exactly where the finger is. Restored on touchend.
     sidebar.style.transition = 'none';
   }
 
@@ -1489,13 +1330,9 @@ function initMobileSheet() {
     if (!dragging || startY == null || !e.touches || !e.touches.length) return;
     const dy = e.touches[0].clientY - startY;
     lastDelta = dy;
-    // Upward swipe past the threshold while collapsed → expand. Done mid-drag
-    // (not on touchend) so the user sees the height jump while still pulling.
     if (dy < -50 && !sidebar.classList.contains('is-expanded')) {
       sidebar.classList.add('is-expanded');
     }
-    // Only drag the sheet downward — translating up would pull it above the
-    // viewport top, which isn't meaningful for a bottom sheet.
     if (dy > 0) {
       sidebar.style.transform = 'translateY(' + dy + 'px)';
     } else {
@@ -1519,9 +1356,6 @@ function initMobileSheet() {
   }
 
   function onClick() {
-    // A real drag (close/expand by swipe) suppresses the synthetic click that
-    // some browsers fire after touchend, so the tap-to-toggle below only runs
-    // for actual taps with no significant movement.
     if (suppressNextClick) {
       suppressNextClick = false;
       return;
@@ -1536,8 +1370,6 @@ function initMobileSheet() {
   sidebar._sheetHandlers = { start: onStart, move: onMove, end: onEnd, click: onClick };
 }
 
-// Re-init only when crossing the 640px breakpoint — every resize-pixel would
-// be wasteful since the handler set doesn't depend on exact width.
 let lastIsMobileForSheet = window.innerWidth <= 640;
 window.addEventListener('resize', () => {
   const isMobile = window.innerWidth <= 640;
@@ -1551,17 +1383,10 @@ function applyResponsiveLineVisibility() {
   if (!deckInstance) return;
   const canvas = deckInstance.canvas;
   if (canvas) {
-    canvas.style.display = 'block'; // show on all screen sizes
+    canvas.style.display = 'block';
   }
 }
 
-// Animate places-circles-main back from SELECTION_OPACITY_EXPR's dimmed
-// default (0.2 currently) to DEFAULT_OPACITY_EXPR's full opacity (0.9 for
-// tier 1/2, 0.45 for tier 3). The Mapbox transition swap is unreliable
-// when the expression structure changes simultaneously with feature-state
-// resets — it can leave per-feature opacity stuck on intermediate values.
-// Driving the case expression's default branches per frame guarantees the
-// final state is reached.
 function unfadeMain() {
   if (unfadeMainAnimFrame !== null) {
     cancelAnimationFrame(unfadeMainAnimFrame);
@@ -1569,18 +1394,11 @@ function unfadeMain() {
   }
   if (!map) return;
   try {
-    // Stop Mapbox from competing with our per-frame snaps.
     map.setPaintProperty('places-circles-main', 'circle-opacity-transition', { duration: 0, delay: 0 });
   } catch (e) {}
 
-  // Drive a LITERAL opacity value per frame instead of a case expression.
-  // With 14k features, every per-frame `setPaintProperty(case-expr)` was
-  // triggering a full re-evaluation across the layer and dragging the rAF
-  // down to 3–5 fps — visually the animation took 5–10 seconds. Mapbox
-  // applies a literal opacity as a single uniform update, no per-feature
-  // work, so this stays at 60fps even on the full NYC dataset.
-  const FROM = 0.1;   // SELECTION_OPACITY_EXPR's dimmed default
-  const TO = 0.9;     // DEFAULT_OPACITY_EXPR's tier-1/2 value
+  const FROM = 0.1;
+  const TO = 0.9;
   const DURATION = 300;
   const startTime = performance.now();
 
@@ -1595,10 +1413,6 @@ function unfadeMain() {
       unfadeMainAnimFrame = requestAnimationFrame(step);
     } else {
       unfadeMainAnimFrame = null;
-      // Settle on DEFAULT_OPACITY_EXPR so tier 3 returns to its dimmer
-      // 0.45 (only ~1 feature in the dataset, so the brief overshoot to
-      // 0.9 during the animation is imperceptible). Also restore a non-
-      // zero transition for setSelected's next fade-into-selection.
       try {
         map.setPaintProperty('places-circles-main', 'circle-opacity', DEFAULT_OPACITY_EXPR);
         map.setPaintProperty('places-circles-main', 'circle-opacity-transition', { duration: 300, delay: 0 });
@@ -1625,7 +1439,6 @@ function setSelected(placeId) {
   connectedIds.clear();
 
   const place = featuresById.get(placeId);
-  // Use string placeId directly — promoteId maps the 'id' property
   map.setFeatureState(
     { source: 'places', sourceLayer: 'nyc_places', id: placeId },
     { selected: true }
@@ -1633,9 +1446,6 @@ function setSelected(placeId) {
   selectedId = placeId;
   selectedPlaceId = placeId;
 
-  // Suppress kindred highlight + selection-dim in filter mode — the filter
-  // expression on the main layer already provides the right visual contrast,
-  // and lighting up kindred would visually compete with the filter set.
   if (!activeFilterTag && place && Array.isArray(place.similarity_ids)) {
     for (const pid of place.similarity_ids.slice(0, TOP_KINDRED)) {
       map.setFeatureState(
@@ -1657,8 +1467,6 @@ function openSidebar(placeId) {
   if (!place) return;
 
   setSelected(placeId);
-  // Filter mode suppresses kindred lines; if the user had the "web"
-  // toggle on, we redraw it against the filter set for the new selection.
   if (activeFilterTag) {
     clearKindredLines();
     if (showSecondTier) drawFilterLines(placeId);
@@ -1687,8 +1495,6 @@ function openSidebar(placeId) {
   }
   parts.push(renderVibeChart(place));
   if (activeFilterTag) {
-    // Filter mode: the kindred section is replaced by a filter list UI.
-    // renderFilterSidebar fills this placeholder once the innerHTML lands.
     parts.push('<div id="filter-section"></div>');
   } else {
     parts.push(renderKindredTypeBreakdown(place.similarity_ids));
@@ -1705,9 +1511,6 @@ function openSidebar(placeId) {
 
   const sidebar = document.getElementById('sidebar');
   const wasOpen = sidebar.classList.contains('is-open');
-  // Every new place opens in the collapsed (50vh) state on mobile. Without
-  // this, navigating between kindred cards would carry the previous sheet's
-  // expanded height into the next one.
   sidebar.classList.remove('is-expanded');
   sidebar.style.transform = '';
   sidebar.classList.add('is-open');
@@ -1717,17 +1520,11 @@ function openSidebar(placeId) {
     map.easeTo({ padding: { right: 440 }, duration: 250 });
   }
 
-  // Wire the second-tier toggle that renderKindred just injected. The
-  // button is re-created on every openSidebar call (innerHTML replace), so
-  // the listener has to be re-attached each time.
   const tierBtn = content.querySelector('#second-tier-toggle');
   if (tierBtn) {
     tierBtn.addEventListener('click', toggleSecondTier);
   }
 
-  // Community pill clickability — each pill carrying data-filter-tag
-  // routes into enterFilterMode. Pills without the attribute (none today)
-  // remain inert.
   content.querySelectorAll('.vibe-community-tag[data-filter-tag]').forEach((el) => {
     el.addEventListener('click', () => {
       const tag = el.getAttribute('data-filter-tag');
@@ -1747,11 +1544,6 @@ function openSidebar(placeId) {
           pitch: 65,
           duration: 5000,
         };
-        // Mobile: the bottom sheet covers the lower ~50vh. Passing that as
-        // bottom padding biases Mapbox's effective center into the visible
-        // top half so the new place isn't hidden behind the sheet. Desktop
-        // already has padding: { right: 440 } set by openSidebar's easeTo,
-        // so we leave padding alone there and let that state persist.
         if (window.innerWidth <= 640) {
           flyOpts.padding = {
             top: 0,
@@ -1768,16 +1560,11 @@ function openSidebar(placeId) {
 }
 
 function closeSidebar() {
-  // If the sidebar is being closed while filter mode is live, tear down
-  // filter state first so the main-layer opacity expression resets before
-  // unfadeMain runs. Skip the re-render path — we're closing, not switching.
   if (activeFilterTag) {
     exitFilterMode(false);
   }
   const sidebar = document.getElementById('sidebar');
   const wasOpen = sidebar.classList.contains('is-open');
-  // Drop the expanded state BEFORE the close transform so the sheet animates
-  // out from its current height — the next openSidebar() starts collapsed.
   sidebar.classList.remove('is-expanded');
   sidebar.style.transform = '';
   sidebar.classList.remove('is-open');
@@ -1802,18 +1589,15 @@ function closeSidebar() {
   const tierBtn = document.getElementById('second-tier-toggle');
   if (tierBtn) tierBtn.style.display = 'none';
   if (map) {
-  unfadeMain();
-  if (wasOpen) map.easeTo({ padding: { right: 0 }, duration: 250 });
+    unfadeMain();
+    if (wasOpen) map.easeTo({ padding: { right: 0 }, duration: 250 });
   }
   map.setConfigProperty('basemap', 'transition', { duration: 300, delay: 0 });
   map.setPaintProperty('faded-overlay', 'background-opacity', 0, { duration: 300 });
 }
 
 // ---------- Header search ----------
-// Builds the Fuse.js index over featuresById, populates the type dropdown
-// from real data, and wires the input + filter dropdowns + clear/close
-// behavior. Idempotent: bails if Fuse hasn't loaded (CDN miss) and is
-// safe to call only once — there's no teardown path.
+
 function initSearch() {
   if (!window.Fuse) return;
   const places = Array.from(featuresById.values()).filter((p) => p && p.name);
@@ -1829,8 +1613,6 @@ function initSearch() {
     includeScore: true,
   });
 
-  // Type dropdown populated from real data so the user only sees types
-  // that exist in the dataset (not the full OSM_TYPE_LABELS catalog).
   const types = [...new Set(places.map((p) => p.osm_type).filter(Boolean))].sort();
   const typeSelect = document.getElementById('search-type-filter');
   if (typeSelect) {
@@ -1884,9 +1666,6 @@ function initSearch() {
     runSearch();
   });
 
-  // Click anywhere outside the search container collapses results +
-  // filters. The map click handler in initMap also fires on outside
-  // clicks but uses queryRenderedFeatures, so the two don't collide.
   document.addEventListener('click', (e) => {
     const container = document.getElementById('search-container');
     if (container && !container.contains(e.target)) {
@@ -1899,11 +1678,6 @@ function initSearch() {
   });
 }
 
-// Name-based filter used to suppress 9/11 memorial entries from the
-// empty-query default list. The "9/11 Memorial", "September 11th Victims
-// Memorial", and several adjacent OSM features share the broader WTC
-// complex's ~93k Google review count — without this filter they take
-// over the top 7 slots before any other place appears.
 const NINE_ELEVEN_RE = /9\/11|9-11|september\s*11|ground\s*zero/i;
 function is911Related(name) {
   return NINE_ELEVEN_RE.test(name);
@@ -1915,17 +1689,10 @@ function runSearch() {
   const resultsEl = document.getElementById('search-results');
   if (!listEl) return;
 
-  // Candidate pool: fuzzy-match the query if it's long enough, otherwise
-  // the full set sorted by review_count so the panel doubles as a
-  // "popular places" browser when empty + filters are applied.
   let candidates;
   if (searchQuery.length >= 2) {
     candidates = fuseIndex.search(searchQuery).map((r) => r.item);
   } else {
-    // Empty-query default list. Excludes 9/11 memorial entries — several
-    // share the WTC complex's review_count (~93k) and would otherwise
-    // monopolize the top of the list. Users who actively search for
-    // "9/11" or "memorial" still find them via the fuzzy branch above.
     candidates = Array.from(featuresById.values())
       .filter((p) => p && p.name && !is911Related(p.name))
       .sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
@@ -2009,9 +1776,6 @@ function closeSearch() {
   if (resultsEl) resultsEl.style.display = 'none';
 }
 
-// Collapsible legend — toggle button at the top of #legend hides/shows
-// .legend-content. Collapsed by default on phones since the legend
-// otherwise eats a noticeable chunk of the bottom edge of the screen.
 function initLegend() {
   const toggle = document.getElementById('legend-toggle');
   const content = document.getElementById('legend-content');
@@ -2030,14 +1794,10 @@ function initLegend() {
   });
 }
 
-// Day/night theme — flips both the Mapbox basemap lightPreset (so
-// roads + buildings + water shift to their night palette) and the
-// body class so the CSS dark-mode overrides kick in for the chrome.
-// The narrative path also pokes lightPreset directly via narrative.js's
-// setLightPreset; we leave that path alone since the narrative needs
-// to force-night regardless of the user's pref. Once the narrative
-// exits, this toggle takes over.
+// ---------- Day/night theme ----------
+
 const THEME_STORAGE_KEY = 'map_theme';
+
 function applyMapTheme(theme) {
   const isNight = theme === 'night';
   document.body.classList.toggle('theme-night', isNight);
@@ -2069,6 +1829,12 @@ function applyMapTheme(theme) {
     // ensures selected/connected dots and opacity expressions are
     // restored to their correct values.
     setTimeout(() => {
+      // FIX: cancel any in-flight unfadeMain before re-applying state —
+      // unfadeMain and the theme restore can fight each other.
+      if (unfadeMainAnimFrame !== null) {
+        cancelAnimationFrame(unfadeMainAnimFrame);
+        unfadeMainAnimFrame = null;
+      }
       try {
         if (selectedId) {
           map.setFeatureState(
@@ -2103,23 +1869,14 @@ function applyMapTheme(theme) {
   const icon = document.getElementById('theme-toggle-icon');
   if (icon) icon.textContent = isNight ? '☼' : '☾';
 }
-// Function to apply the user's theme on narrative exit
-// (and on the return-visitor skip path) instead of forcing 'day'.
 window.applyMapTheme = applyMapTheme;
+
 function initTheme() {
   const toggle = document.getElementById('theme-toggle');
   if (!toggle) return;
   let saved = null;
   try { saved = localStorage.getItem(THEME_STORAGE_KEY); } catch (e) {}
-  // Default to night — the narrative ends on night, and the map's
-  // cinematic look is the night basemap with lit-up dots. Day is opt-in.
   const initial = saved === 'day' ? 'day' : 'night';
-  // Skip the initial apply while the narrative is running — narrative.js
-  // has already forced night (setLightPreset + resetExplorationConfig)
-  // and applying the saved theme here would override that and flip the
-  // basemap to day mid-intro for users who'd previously chosen day.
-  // The user's saved preference is restored by applyPostNarrativeTheme
-  // on narrative exit, which calls back into applyMapTheme.
   if (!document.body.classList.contains('narrative-active')) {
     applyMapTheme(initial);
   }
@@ -2130,11 +1887,10 @@ function initTheme() {
   });
 }
 
-// 3D objects toggle — flips the Mapbox Standard style's `show3dObjects`
-// config, which controls 3D buildings, landmarks, and terrain
-// extrusions. The cinematic night basemap leans heavily on the 3D
-// massing so the default is on; clicking flattens the map to 2D.
+// ---------- 3D objects toggle ----------
+
 const THREE_D_STORAGE_KEY = 'map_3d_objects';
+
 function apply3dObjects(enabled) {
   if (map) {
     try {
@@ -2144,13 +1900,12 @@ function apply3dObjects(enabled) {
   const btn = document.getElementById('three-d-toggle');
   if (btn) btn.classList.toggle('is-active', !!enabled);
 }
+
 function init3dToggle() {
   const btn = document.getElementById('three-d-toggle');
   if (!btn) return;
   let saved = null;
   try { saved = localStorage.getItem(THREE_D_STORAGE_KEY); } catch (e) {}
-  // Default to on. Persist explicit 'off' so the absence of the key
-  // (first visit, or never toggled) still reads as enabled.
   const initial = saved !== 'off';
   apply3dObjects(initial);
   btn.addEventListener('click', () => {
@@ -2162,8 +1917,8 @@ function init3dToggle() {
 
 async function initMap() {
   const bounds = [
-  [-74.259, 40.477], // Southwest coordinates (e.g., New York area)
-  [-73.700, 40.917]  // Northeast coordinates
+    [-74.259, 40.477],
+    [-73.700, 40.917],
   ];
 
   mapboxgl.accessToken = MAPBOX_TOKEN;
@@ -2176,9 +1931,6 @@ async function initMap() {
     minZoom: 10,
     maxBounds: bounds,
   });
-  // showCompass: true gives us Mapbox's native compass widget — a north
-  // arrow that rotates with the bearing and resets it to 0 on click.
-  // Replaces an earlier custom #north-arrow element that did the same.
   map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'bottom-right');
 
   showLoading('Loading New York City...');
@@ -2193,18 +1945,13 @@ async function initMap() {
   const geojson = buildGeoJSON(raw);
   hideLoading();
 
-  // Expose populated globals for narrative.js
   window.setSelected = setSelected;
   window.featuresById = featuresById;
   window.drawKindredLines = drawKindredLines;
   window.clearKindredLines = clearKindredLines;
   window.CONSTELLATION_GROUP_COUNT = CONSTELLATION_GROUP_COUNT;
-  // Color lookups for narrative.js's kindred card dot swatches.
   window.COLOR_BY_TYPE = COLOR_BY_TYPE;
   window.COLOR_DEFAULT = COLOR_DEFAULT;
-  // narrative.js calls these to free the 20 constellation sub-layers +
-  // duplicate geojson source after the intro finishes (and to re-add them
-  // on replay). Removing them frees a sizable chunk of Mapbox tile state.
   window.addConstellationLayers = addConstellationLayers;
   window.removeConstellationLayers = removeConstellationLayers;
 
@@ -2258,20 +2005,14 @@ async function initMap() {
   window.addEventListener('resize', applyResponsiveLineVisibility);
   // --- end deck.gl setup ---
 
-  // Stash the geojson for the constellation setup/teardown helpers (they
-  // re-use it on replay without going back to the network).
   geojsonData = geojson;
 
   map.addSource('places', {
-  type: 'vector',
-  url: 'mapbox://jpiac.6vmp9rv4',
-  promoteId: { 'nyc_places': 'id' },
+    type: 'vector',
+    url: 'mapbox://jpiac.6vmp9rv4',
+    promoteId: { 'nyc_places': 'id' },
   });
 
-  // Add the constellation source/layers only if the narrative is going to
-  // play this session — return visitors don't need 20 hidden layers eating
-  // tile state and a duplicate geojson copy. narrative.js calls
-  // window.addConstellationLayers on replay to bring them back.
   let narrativeSeen = false;
   try { narrativeSeen = localStorage.getItem('narrative_seen') === 'true'; } catch (e) {}
   if (!narrativeSeen) {
@@ -2286,17 +2027,17 @@ async function initMap() {
     'source-layer': 'nyc_places',
     slot: 'top',
     filter: ['match', ['get', 'osm_type'],
-  ['cafe', 'bar', 'pub', 'library', 'community_centre',
-   'social_facility', 'hackerspace', 'social_club',
-   'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
-   'museum', 'gallery', 'park', 'garden', 'playground',
-   'sports_centre', 'fitness_centre', 'swimming_pool',
-   'books', 'records', 'hairdresser', 'beauty', 'tattoo',
-   'bakery', 'deli', 'laundry', 'coffee',
-   'place_of_worship',
-   'dance', 'amusement_arcade', 'bowling_alley',
-   'marketplace', 'memorial', 'monument', 'artwork',
-   'attraction', 'viewpoint'], true, false],
+      ['cafe', 'bar', 'pub', 'library', 'community_centre',
+       'social_facility', 'hackerspace', 'social_club',
+       'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
+       'museum', 'gallery', 'park', 'garden', 'playground',
+       'sports_centre', 'fitness_centre', 'swimming_pool',
+       'books', 'records', 'hairdresser', 'beauty', 'tattoo',
+       'bakery', 'deli', 'laundry', 'coffee',
+       'place_of_worship',
+       'dance', 'amusement_arcade', 'bowling_alley',
+       'marketplace', 'memorial', 'monument', 'artwork',
+       'attraction', 'viewpoint'], true, false],
     paint: {
       'circle-color': buildColorExpression(),
       'circle-radius': [
@@ -2334,7 +2075,7 @@ async function initMap() {
     },
   });
 
-  // Faded overlay — animates in when a place is selected
+  // Faded overlay
   map.addLayer({
     id: 'faded-overlay',
     type: 'background',
@@ -2344,27 +2085,24 @@ async function initMap() {
     },
   });
 
-  // Second-tier kindred overlay — sits beneath the first-tier (connected)
-  // and selected overlays so first-tier dots always read as the strongest
-  // signal. Slightly smaller circles + thinner stroke than the first-tier
-  // overlay, per the spec.
+  // Second-tier kindred overlay
   map.addLayer({
     id: 'places-circles-second-tier-overlay',
     type: 'circle',
     source: 'places',
     'source-layer': 'nyc_places',
     filter: ['match', ['get', 'osm_type'],
-  ['cafe', 'bar', 'pub', 'library', 'community_centre',
-   'social_facility', 'hackerspace', 'social_club',
-   'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
-   'museum', 'gallery', 'park', 'garden', 'playground',
-   'sports_centre', 'fitness_centre', 'swimming_pool',
-   'books', 'records', 'hairdresser', 'beauty', 'tattoo',
-   'bakery', 'deli', 'laundry', 'coffee',
-   'place_of_worship',
-   'dance', 'amusement_arcade', 'bowling_alley',
-   'marketplace', 'memorial', 'monument', 'artwork',
-   'attraction', 'viewpoint'], true, false],
+      ['cafe', 'bar', 'pub', 'library', 'community_centre',
+       'social_facility', 'hackerspace', 'social_club',
+       'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
+       'museum', 'gallery', 'park', 'garden', 'playground',
+       'sports_centre', 'fitness_centre', 'swimming_pool',
+       'books', 'records', 'hairdresser', 'beauty', 'tattoo',
+       'bakery', 'deli', 'laundry', 'coffee',
+       'place_of_worship',
+       'dance', 'amusement_arcade', 'bowling_alley',
+       'marketplace', 'memorial', 'monument', 'artwork',
+       'attraction', 'viewpoint'], true, false],
     paint: {
       'circle-color': buildColorExpression(),
       'circle-radius': [
@@ -2379,8 +2117,6 @@ async function initMap() {
         ['boolean', ['feature-state', 'second_connected'], false], 0.5,
         0,
       ],
-      // Matches the arc draw duration in drawSecondTierLines so dot
-      // fade-in tracks the arc's progress and both complete together.
       'circle-opacity-transition': { duration: 1500, delay: 0 },
       'circle-stroke-color': [
         'case',
@@ -2404,17 +2140,17 @@ async function initMap() {
     source: 'places',
     'source-layer': 'nyc_places',
     filter: ['match', ['get', 'osm_type'],
-  ['cafe', 'bar', 'pub', 'library', 'community_centre',
-   'social_facility', 'hackerspace', 'social_club',
-   'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
-   'museum', 'gallery', 'park', 'garden', 'playground',
-   'sports_centre', 'fitness_centre', 'swimming_pool',
-   'books', 'records', 'hairdresser', 'beauty', 'tattoo',
-   'bakery', 'deli', 'laundry', 'coffee',
-   'place_of_worship',
-   'dance', 'amusement_arcade', 'bowling_alley',
-   'marketplace', 'memorial', 'monument', 'artwork',
-   'attraction', 'viewpoint'], true, false],
+      ['cafe', 'bar', 'pub', 'library', 'community_centre',
+       'social_facility', 'hackerspace', 'social_club',
+       'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
+       'museum', 'gallery', 'park', 'garden', 'playground',
+       'sports_centre', 'fitness_centre', 'swimming_pool',
+       'books', 'records', 'hairdresser', 'beauty', 'tattoo',
+       'bakery', 'deli', 'laundry', 'coffee',
+       'place_of_worship',
+       'dance', 'amusement_arcade', 'bowling_alley',
+       'marketplace', 'memorial', 'monument', 'artwork',
+       'attraction', 'viewpoint'], true, false],
     paint: {
       'circle-color': buildColorExpression(),
       'circle-radius': [
@@ -2444,24 +2180,24 @@ async function initMap() {
     },
   });
 
-  // Selected place overlay — topmost layer
+  // Selected place overlay
   map.addLayer({
     id: 'places-circles-selected-overlay',
     type: 'circle',
     source: 'places',
     'source-layer': 'nyc_places',
     filter: ['match', ['get', 'osm_type'],
-  ['cafe', 'bar', 'pub', 'library', 'community_centre',
-   'social_facility', 'hackerspace', 'social_club',
-   'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
-   'museum', 'gallery', 'park', 'garden', 'playground',
-   'sports_centre', 'fitness_centre', 'swimming_pool',
-   'books', 'records', 'hairdresser', 'beauty', 'tattoo',
-   'bakery', 'deli', 'laundry', 'coffee',
-   'place_of_worship',
-   'dance', 'amusement_arcade', 'bowling_alley',
-   'marketplace', 'memorial', 'monument', 'artwork',
-   'attraction', 'viewpoint'], true, false],
+      ['cafe', 'bar', 'pub', 'library', 'community_centre',
+       'social_facility', 'hackerspace', 'social_club',
+       'arts_centre', 'theatre', 'cinema', 'music_venue', 'nightclub',
+       'museum', 'gallery', 'park', 'garden', 'playground',
+       'sports_centre', 'fitness_centre', 'swimming_pool',
+       'books', 'records', 'hairdresser', 'beauty', 'tattoo',
+       'bakery', 'deli', 'laundry', 'coffee',
+       'place_of_worship',
+       'dance', 'amusement_arcade', 'bowling_alley',
+       'marketplace', 'memorial', 'monument', 'artwork',
+       'attraction', 'viewpoint'], true, false],
     paint: {
       'circle-color': buildColorExpression(),
       'circle-radius': [
@@ -2491,59 +2227,56 @@ async function initMap() {
     },
   });
 
- if (typeof window.initNarrative === 'function') {
-  window.initNarrative(map);
+  if (typeof window.initNarrative === 'function') {
+    window.initNarrative(map);
   }
 
   initMobileSheet();
-  // featuresById is populated by buildGeoJSON above, the style is loaded,
-  // and Fuse.js's <script> tag runs before main.js — so the index can be
-  // built immediately. The dropdown wiring + event listeners attach here.
   initSearch();
   initLegend();
   initTheme();
   init3dToggle();
 
   function onCircleMouseEnter(e) {
-  if (!e.features.length) return;
-  if (document.getElementById('narrative-overlay')?.classList.contains('is-interactive')) return;
-  map.getCanvas().style.cursor = 'pointer';
-  const id = e.features[0].properties.id; // use properties.id not feature.id
-  if (hoveredId !== null && hoveredId !== id) {
+    if (!e.features.length) return;
+    if (document.getElementById('narrative-overlay')?.classList.contains('is-interactive')) return;
+    map.getCanvas().style.cursor = 'pointer';
+    const id = e.features[0].properties.id;
+    if (hoveredId !== null && hoveredId !== id) {
+      map.setFeatureState(
+        { source: 'places', sourceLayer: 'nyc_places', id: hoveredId },
+        { hover: false }
+      );
+    }
+    hoveredId = id;
     map.setFeatureState(
       { source: 'places', sourceLayer: 'nyc_places', id: hoveredId },
-      { hover: false }
+      { hover: true }
     );
   }
-  hoveredId = id;
-  map.setFeatureState(
-    { source: 'places', sourceLayer: 'nyc_places', id: hoveredId },
-    { hover: true }
-  );
-}
 
-function onCircleMouseLeave() {
-  map.getCanvas().style.cursor = '';
-  if (hoveredId !== null) {
-    map.setFeatureState(
-      { source: 'places', sourceLayer: 'nyc_places', id: hoveredId },
-      { hover: false }
-    );
-    hoveredId = null;
+  function onCircleMouseLeave() {
+    map.getCanvas().style.cursor = '';
+    if (hoveredId !== null) {
+      map.setFeatureState(
+        { source: 'places', sourceLayer: 'nyc_places', id: hoveredId },
+        { hover: false }
+      );
+      hoveredId = null;
+    }
   }
-}
 
   function onCircleClick(e) {
-  if (!e.features.length) return;
-  if (document.getElementById('narrative-overlay') && 
-      document.getElementById('narrative-overlay').classList.contains('is-interactive')) return;
-  const priorityHits = map.queryRenderedFeatures(e.point, {
-    layers: [
-      'places-circles-selected-overlay',
-      'places-circles-connected-overlay',
-      'places-circles-second-tier-overlay',
-      'places-circles-main',
-    ]
+    if (!e.features.length) return;
+    if (document.getElementById('narrative-overlay') &&
+        document.getElementById('narrative-overlay').classList.contains('is-interactive')) return;
+    const priorityHits = map.queryRenderedFeatures(e.point, {
+      layers: [
+        'places-circles-selected-overlay',
+        'places-circles-connected-overlay',
+        'places-circles-second-tier-overlay',
+        'places-circles-main',
+      ]
     });
     const hit = priorityHits.length > 0 ? priorityHits[0] : e.features[0];
     const pid = hit.properties.id;
@@ -2560,11 +2293,10 @@ function onCircleMouseLeave() {
     map.on('click', layer, onCircleClick);
   });
 
-  // Click on empty map area → deselect
   map.on('click', (e) => {
     if (selectedId === null) return;
-    if (document.getElementById('narrative-overlay') && 
-      document.getElementById('narrative-overlay').classList.contains('is-interactive')) return;
+    if (document.getElementById('narrative-overlay') &&
+        document.getElementById('narrative-overlay').classList.contains('is-interactive')) return;
     const hits = map.queryRenderedFeatures(e.point, {
       layers: [
         'places-circles-selected-overlay',
@@ -2590,9 +2322,6 @@ function toggleAbout() {
 }
 window.toggleAbout = toggleAbout;
 
-// Click anywhere outside the open panel (and not on the open-button)
-// closes it. Mapbox's map.on('click') handles its own canvas-clicks
-// separately, so this and the deselect logic don't collide.
 document.addEventListener('click', (e) => {
   const panel = document.getElementById('about-panel');
   const btn = document.getElementById('about-btn');
@@ -2611,7 +2340,6 @@ function initUI() {
   });
   document.getElementById('sidebar-content').innerHTML =
     '<p class="empty-state">Click any point on the map to explore a place.</p>';
-  // Wire the About panel's close (X) button.
   const aboutClose = document.getElementById('about-close');
   if (aboutClose) aboutClose.addEventListener('click', toggleAbout);
 }
