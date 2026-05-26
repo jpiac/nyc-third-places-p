@@ -154,11 +154,17 @@
   // that persists into exploration mode. Attached once via the
   // roadLabelListenerAttached guard so replays don't stack listeners.
   function applyRoadLabelsForZoom() {
-    if (!map) return;
-    try {
-      map.setConfigProperty('basemap', 'showRoadLabels', map.getZoom() >= 15);
-    } catch (e) {}
-  }
+  if (!map) return;
+  const shouldShow = map.getZoom() >= 15;
+  // Only call setConfigProperty when the value changes — calling it on
+  // every zoom event triggers a style re-evaluation each time, which
+  // can visibly slow tile loading during continuous zoom gestures.
+  if (applyRoadLabelsForZoom._last === shouldShow) return;
+  applyRoadLabelsForZoom._last = shouldShow;
+  try {
+    map.setConfigProperty('basemap', 'showRoadLabels', shouldShow);
+  } catch (e) {}
+}
 
   function applyExplorationConfig() {
     try {
