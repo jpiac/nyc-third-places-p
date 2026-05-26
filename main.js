@@ -21,7 +21,7 @@ function openFeedbackModal(placeId, placeName) {
     subtitle.textContent = placeName;
   } else {
     title.textContent = 'Share Feedback';
-    subtitle.textContent = 'Help us improve The Third Place map.';
+    subtitle.textContent = 'Help us improve the Third Places map.';
   }
   textarea.value = '';
   success.style.display = 'none';
