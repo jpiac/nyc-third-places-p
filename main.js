@@ -1395,6 +1395,21 @@ window.addEventListener('resize', () => {
   }
 });
 
+// Suppress sidebar transition during window resize so the layout
+// shift from desktop (right panel) to mobile (bottom sheet) doesn't
+// animate visibly as the sidebar flies across the screen.
+let resizeTransitionTimer = null;
+window.addEventListener('resize', () => {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+  sidebar.style.transition = 'none';
+  if (resizeTransitionTimer) clearTimeout(resizeTransitionTimer);
+  resizeTransitionTimer = setTimeout(() => {
+    sidebar.style.transition = '';
+    resizeTransitionTimer = null;
+  }, 150);
+});
+
 function applyResponsiveLineVisibility() {
   if (!deckInstance) return;
   const canvas = deckInstance.canvas;
@@ -2346,8 +2361,10 @@ window.toggleAbout = toggleAbout;
 document.addEventListener('click', (e) => {
   const panel = document.getElementById('about-panel');
   const btn = document.getElementById('about-btn');
+  const hamburgerMenu = document.getElementById('hamburger-menu');
   if (panel && panel.classList.contains('is-open')) {
-    if (!panel.contains(e.target) && e.target !== btn) {
+    if (!panel.contains(e.target) && e.target !== btn &&
+        !(hamburgerMenu && hamburgerMenu.contains(e.target))) {
       panel.classList.remove('is-open');
       panel.setAttribute('aria-hidden', 'true');
     }
@@ -2364,6 +2381,43 @@ function initUI() {
   const aboutClose = document.getElementById('about-close');
   if (aboutClose) aboutClose.addEventListener('click', toggleAbout);
 }
+
+function toggleHamburger() {
+  const btn = document.getElementById('hamburger-btn');
+  const menu = document.getElementById('hamburger-menu');
+  if (!btn || !menu) return;
+  const isOpen = menu.classList.toggle('is-open');
+  btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  menu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+}
+
+function closeHamburger() {
+  const btn = document.getElementById('hamburger-btn');
+  const menu = document.getElementById('hamburger-menu');
+  if (!btn || !menu) return;
+  menu.classList.remove('is-open');
+  btn.setAttribute('aria-expanded', 'false');
+  menu.setAttribute('aria-hidden', 'true');
+}
+window.closeHamburger = closeHamburger;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('hamburger-btn');
+  if (btn) btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleHamburger();
+  });
+  // Close when clicking outside
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('hamburger-menu');
+    const btn = document.getElementById('hamburger-btn');
+    if (menu && menu.classList.contains('is-open')) {
+      if (!menu.contains(e.target) && e.target !== btn) {
+        closeHamburger();
+      }
+    }
+  });
+});
 
 if (!MAPBOX_TOKEN) {
   showError('Set MAPBOX_TOKEN at the top of main.js before loading.');

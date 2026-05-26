@@ -77,6 +77,14 @@
     <button id="replay-narrative" onclick="replayNarrative()">Replay Intro</button>
     <button id="about-btn" onclick="toggleAbout()">About</button>
     <button id="feedback-btn" onclick="openFeedbackModal()">Feedback</button>
+    <button id="hamburger-btn" class="hamburger-btn" aria-label="Menu" aria-expanded="false" aria-controls="hamburger-menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div id="hamburger-menu" class="hamburger-menu" aria-hidden="true">
+      <button onclick="replayNarrative(); closeHamburger()">Replay Intro</button>
+      <button onclick="toggleAbout(); closeHamburger()">About</button>
+      <button onclick="openFeedbackModal(); closeHamburger()">Feedback</button>
+    </div>
   </header>
 
   <div id="loading"></div>

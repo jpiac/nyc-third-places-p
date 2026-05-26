@@ -39,7 +39,7 @@ html, body {
 
 /* Header */
 .app-header {
-  position: absolute;
+  position: relative;
   top: 0;
   left: 0;
   right: 0;
@@ -483,6 +483,40 @@ html, body {
   opacity: 0;
 }
 @media (max-width: 640px) {
+  .app-header {
+    padding: 10px 16px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .app-title {
+    font-size: 15px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .app-subtitle {
+    display: none;
+  }
+
+  .search-container {
+    flex: 1;
+    min-width: 0;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .search-input-row {
+    width: 100%;
+    max-width: 180px;
+  }
+
+  .hamburger-btn {
+    flex-shrink: 0;
+  }
+
   .legend-toggle {
     display: flex;
   }
@@ -879,9 +913,17 @@ body.narrative-active .mapboxgl-ctrl-group {
 @media (max-width: 640px) {
   .app-header {
     padding: 10px 16px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
   }
-  .app-title { font-size: 18px; }
-  .app-subtitle { font-size: 12px; }
+  .app-title {
+    font-size: 15px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .app-subtitle { display: none; }
   .sidebar {
     top: auto;
     left: 0;
@@ -926,6 +968,111 @@ body.narrative-active .mapboxgl-ctrl-group {
 #feedback-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* --- Hamburger menu — mobile only --- */
+.hamburger-btn {
+  display: none;
+}
+
+.hamburger-menu {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  /* Hide the three individual buttons, show hamburger instead */
+  #replay-narrative,
+  #about-btn,
+  #feedback-btn {
+    display: none;
+  }
+
+  .hamburger-btn {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 32px;
+    height: 22px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .hamburger-btn span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: var(--text);
+    border-radius: 2px;
+    transition: background 0.2s;
+  }
+
+  .hamburger-btn:hover span {
+    background: var(--accent);
+  }
+
+  .hamburger-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+     background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 20;
+    min-width: 160px;
+    overflow: hidden;
+  }
+
+  .hamburger-menu.is-open {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hamburger-menu button {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    text-align: left;
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    width: 100%;
+    transition: color 0.2s;
+  }
+
+  .hamburger-menu button:last-child {
+    border-bottom: none;
+  }
+
+  .hamburger-menu button:hover {
+    color: var(--accent);
+    background: transparent;
+  }
+}
+
+/* Night mode for hamburger */
+body.theme-night .hamburger-btn span {
+  background: rgba(255,255,255,0.85);
+}
+
+body.theme-night .hamburger-menu {
+  background: #0f0f1a;
+  border-color: rgba(255,255,255,0.12);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+
+body.theme-night .hamburger-menu button {
+  color: rgba(255,255,255,0.85);
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+
+body.theme-night .hamburger-menu button:hover {
+  background: rgba(255,255,255,0.06);
 }
 
 /* Feedback modal */
@@ -1214,9 +1361,6 @@ body.narrative-active .mapboxgl-ctrl-group {
   text-align: center;
   color: var(--text-muted);
   font-size: 13px;
-}
-@media (max-width: 640px) {
-  .search-container { display: none; }
 }
 
 /* ============================================================
