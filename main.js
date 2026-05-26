@@ -2043,14 +2043,7 @@ function applyMapTheme(theme) {
   document.body.classList.toggle('theme-night', isNight);
   if (map) {
     try {
-      // Basemap light preset: shifts the entire Mapbox style into the
-      // 'night' / 'day' lighting condition. Buildings, water, parks all
-      // pick up the new ambient.
       map.setConfigProperty('basemap', 'lightPreset', isNight ? 'night' : 'day');
-      // Road colors per the visual brief: hidden in night (the lit dots
-      // become the focal field), white in day (visible grid that frames
-      // the dot positions). These overrides win over the basemap style's
-      // own road colors regardless of lightPreset.
       if (isNight) {
         map.setConfigProperty('basemap', 'colorMotorways', 'rgb(42, 56, 100)');
         map.setConfigProperty('basemap', 'colorTrunks', 'rgb(42, 56, 100)');
@@ -2061,9 +2054,6 @@ function applyMapTheme(theme) {
         map.setConfigProperty('basemap', 'colorRoads', '#ffffff');
       }
     } catch (e) {}
-    // Invert the main layer's stroke palette so hover/selected reads as
-    // the brighter accent in both themes (default→hover is "dim→light"
-    // in night, "light→dim" in day).
     try {
       map.setPaintProperty(
         'places-circles-main',
@@ -2071,12 +2061,49 @@ function applyMapTheme(theme) {
         isNight ? PLACES_STROKE_NIGHT : PLACES_STROKE_DAY
       );
     } catch (e) {}
+
+    // Re-establish feature-states after basemap config change.
+    // setConfigProperty('lightPreset') triggers an internal Mapbox
+    // re-evaluation that can temporarily drop feature-state-driven
+    // expressions on overlay layers. Reapplying after a short delay
+    // ensures selected/connected dots and opacity expressions are
+    // restored to their correct values.
+    setTimeout(() => {
+      try {
+        if (selectedId) {
+          map.setFeatureState(
+            { source: 'places', sourceLayer: 'nyc_places', id: selectedId },
+            { selected: true }
+          );
+        }
+        for (const id of connectedIds) {
+          map.setFeatureState(
+            { source: 'places', sourceLayer: 'nyc_places', id },
+            { connected: true }
+          );
+        }
+        for (const id of secondConnectedIds) {
+          map.setFeatureState(
+            { source: 'places', sourceLayer: 'nyc_places', id },
+            { second_connected: true }
+          );
+        }
+        if (activeFilterTag) {
+          map.setPaintProperty('places-circles-main', 'circle-opacity', FILTER_OPACITY_EXPR);
+          if (filterMatchIds.size > 0) {
+            setFilterMatchedState(filterMatchIds, true);
+          }
+        } else if (selectedId) {
+          map.setPaintProperty('places-circles-main', 'circle-opacity', SELECTION_OPACITY_EXPR);
+        }
+      } catch (e) {}
+    }, 150);
   }
+
   const icon = document.getElementById('theme-toggle-icon');
-  // ☾ = invitation to night (currently day); ☼ = invitation to day (currently night).
   if (icon) icon.textContent = isNight ? '☼' : '☾';
 }
-// Exposed so narrative.js can apply the user's theme on narrative exit
+// Function to apply the user's theme on narrative exit
 // (and on the return-visitor skip path) instead of forcing 'day'.
 window.applyMapTheme = applyMapTheme;
 function initTheme() {
@@ -2343,8 +2370,8 @@ async function initMap() {
       'circle-radius': [
         'interpolate', ['linear'],
         ['coalesce', ['to-number', ['get', 'review_count']], 0],
-        0, 4,
-        1000, 8,
+        0, 3,
+        1000, 6,
       ],
       'circle-emissive-strength': 1,
       'circle-opacity': [
@@ -2393,8 +2420,8 @@ async function initMap() {
       'circle-radius': [
         'interpolate', ['linear'],
         ['coalesce', ['to-number', ['get', 'review_count']], 0],
-        0, 5,
-        1000, 10,
+        0, 4,
+        1000, 8,
       ],
       'circle-emissive-strength': 1,
       'circle-opacity': [
@@ -2440,8 +2467,8 @@ async function initMap() {
       'circle-radius': [
         'interpolate', ['linear'],
         ['coalesce', ['to-number', ['get', 'review_count']], 0],
-        0, 5,
-        1000, 10,
+        0, 4,
+        1000, 8,
       ],
       'circle-emissive-strength': 1,
       'circle-opacity': [
