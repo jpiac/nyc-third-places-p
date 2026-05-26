@@ -6,17 +6,10 @@
   const INITIAL_CENTER = [-73.95, 40.7];
   const INITIAL_ZOOM = 11;
   const INITIAL_PITCH = 40;
-  // Hero places used across Beats 4–8. IDs match the place.id strings
-  // produced by 01_filter_osm.js (`osm_<osm_id>`). If the underlying data
-  // shifts and these IDs no longer resolve, the FALLBACK names render in
-  // the right-side card and the arc draws become no-ops.
   const TROPICANA_COORDS = [-73.8872699, 40.8283426];
   const TROPICANA_ID = 'osm_5172757288';
   const TROPICANA_NAME = 'Tropicana';
 
-  // Beats 4–5: Henrietta Hudson as the LGBTQ+ identity beat anchor. The
-  // rainbow arc colors are sampled per-arc with slight alpha jitter so the
-  // 50-arc bouquet reads as varied without an explicit per-target mapping.
   const HENRIETTA_COORDS = [-74.0065268, 40.7310628];
   const HENRIETTA_ID = 'osm_6182279414';
   const HENRIETTA_NAME = 'Henrietta Hudson';
@@ -31,37 +24,27 @@
     [255, 148, 200],
   ];
 
-  // Star palette — used for ALL narrative arcs (first- and second-degree)
-  // throughout Beats 4–8. The colored type-palette is reserved for the
-  // post-CTA interactive map.
   const STAR_FIRST_SRC = [255, 249, 196, 220];
   const STAR_FIRST_DST = [255, 255, 255, 180];
   const STAR_SECOND_SRC = [255, 224, 102, 100];
   const STAR_SECOND_DST = [255, 245, 160, 60];
 
-  // One Mapbox layer per reveal_group — created in main.js. We control each
-  // sub-layer's opacity / radius / blur with literal values so paint-property
-  // transitions fire reliably.
   const TOTAL_GROUPS = 20;
-  const REVEAL_STAGGER_MS = 400;     // delay between successive group reveals
-  const FADE_IN_MS = 2000;           // per-group fade duration (matches layer transition)
-  const FADE_OUT_MS = 1500;          // step-4 constellation fade-out
-  const PULSE_FREQUENCY_HZ = 1.5;    // sine cycles per second
-  const PULSE_THROTTLE_MS = 33;      // ~30Hz radius/blur update cadence
+  const REVEAL_STAGGER_MS = 400;
+  const FADE_IN_MS = 2000;
+  const FADE_OUT_MS = 1500;
+  const PULSE_FREQUENCY_HZ = 1.5;
+  const PULSE_THROTTLE_MS = 33;
   const STAR_OPACITY = 0.85;
 
-  // Real MTA subway line geometry is fetched at init time from NYC Open
-  // Data (see fetchSubwayLines below) and cached in subwayLinesData. Colors
-  // cycle through this star palette so the routes read as a constellation
-  // of trunk lines rather than a categorical transit map.
   const STAR_PALETTE = [
-    [255, 255, 255],   // white
-    [255, 249, 196],   // warm white
-    [255, 237, 120],   // light gold
-    [255, 224, 102],   // gold
-    [255, 245, 160],   // pale yellow
-    [255, 235, 80],    // bright gold
-    [255, 255, 220],   // cream
+    [255, 255, 255],
+    [255, 249, 196],
+    [255, 237, 120],
+    [255, 224, 102],
+    [255, 245, 160],
+    [255, 235, 80],
+    [255, 255, 220],
   ];
 
   function constellationLayerId(g) {
@@ -77,91 +60,47 @@
   let originalFilter = null;
   let originalOpacity = null;
 
-  // Per-group pulse state.
   let groupStartTimes = new Array(TOTAL_GROUPS).fill(null);
   let pulseAnimFrame = null;
   let lastPulseUpdate = 0;
 
-  // Listener-attachment guard so replay doesn't stack duplicates.
   let listenersAttached = false;
 
-  // Beat 6 has two staggered timers (Tropicana kindred at +1500ms, second-
-  // tier auto-toggle at +3000ms). Stored at module scope so step 7 / exit
-  // can cancel them if the user advances early.
   let tropicanaKindredTimer = null;
   let tropicanaSecondTierTimer = null;
 
-  // 9-beat narrative — right-side cards, web badge, and the four per-beat
-  // staggered timers. All cleared by exitNarrative.
   let narrativePlaceCardEl = null;
   let narrativeKindredCardEl = null;
   let narrativeWebBadgeVisible = false;
-  // Beat 7 Tropicana card-show timer + Beat 8 kindred-card and web-badge
-  // and second-tier sub-timers.
   let tropicanaCardTimer = null;
   let tropicanaKindredCardTimer = null;
   let tropicanaWebBadgeTimer = null;
-  // Beat 5 Henrietta kindred-card-show timer — drives the same 300ms
-  // delay-after-slide-up pattern Tropicana uses in Beat 7.
   let henriettaKindredCardTimer = null;
   let lgbtqArcTimer = null;
 
-  // rAF handles for the narrative arc layers. drawNarrativeArcs uses
-  // 'narrative-arcs-glow' / 'narrative-arcs'; the second-tier function
-  // ADDS 'narrative-arcs-second-glow' / 'narrative-arcs-second' on top
-  // (rather than replacing).
   let narrativeArcsAnimFrame = null;
   let narrativeArcsSecondAnimFrame = null;
-  // Per-tier line data cached at module level so renderNarrativeArcs()
-  // can re-emit both tiers together — deck.gl's setProps replaces all
-  // layers, so we have to pass both sets every frame we want both
-  // visible.
   let narrativeFirstLineData = [];
   let narrativeSecondLineData = [];
 
-  // --- Beat 2 subway draw/undraw animation ---
-  // subwayAnimFrame holds the rAF for whichever pass (draw or undraw) is
-  // currently running. subwayUndrawTimer is the 1s wait between the two.
-  // subwayLineData is the per-frame line-segment array — kept at module
-  // scope so renderSubwayLines() can re-emit it on each frame.
-  // subwayLinesData is the network-fetched trunk-line geometry (array of
-  // { name, color, coords }); null until fetchSubwayLines completes.
   let subwayAnimFrame = null;
   let subwayUndrawTimer = null;
   let subwayLineData = [];
   let subwayLinesData = null;
 
-  // --- Beat 4/5 Henrietta + LGBTQ web state ---
-  // The Henrietta + LGBTQ highlight dots are rendered as Mapbox circle
-  // layers with constellation-star paint properties (radius/blur driven
-  // per-frame via setPaintProperty). Only the rainbow arcs ride on
-  // deckInstance via renderAllNarrativeLayers.
-  let lgbtqDotAnimFrame = null;        // post-wave radius pulse rAF
-  // Per-wave setTimeout handles for drawLgbtqDots — cleared by clearLgbtqDots
-  // so a teardown mid-stagger can't queue further setData calls.
+  let lgbtqDotAnimFrame = null;
   let lgbtqWaveTimers = [];
-  let henriettaHighlightTimer = null;  // 1s delay before highlight starts
-  let lgbtqDotsTimer = null;           // 2.5s delay before dots draw
+  let henriettaHighlightTimer = null;
+  let lgbtqDotsTimer = null;
   let rainbowArcsAnimFrame = null;
   let rainbowArcsSecondAnimFrame = null;
   let rainbowLineData = [];
-  // Henrietta-highlight rAF lives separately so the pulse keeps running
-  // while drawLgbtqDots animates the dot fade-in in parallel.
   let henriettaHighlightAnimFrame = null;
-  // Tropicana highlight rAF — Beat 7 (n===6) star at the Tropicana
-  // location, cleared on Beat 8 entry and in exitNarrative.
   let tropicanaHighlightAnimFrame = null;
-  // Camera-path rAF — drives animateCameraPath through a list of
-  // keyframes per beat (Beat 4 uses this for the multi-waypoint
-  // approach into Henrietta). Cleared in clearAllNarrativeBeatTimers
-  // and exitNarrative so a fresh beat doesn't fight a stale rAF.
   let cameraPathAnimFrame = null;
 
-  // Exposed for narrative beats so Beat 5 can reuse the same selection
-  // Beat 4 picked, without re-running selectLgbtqPlaces().
   window.lgbtqPlaces = null;
 
-  // --- Beat 3 constellation interaction state ---
   let constellationWebAnimFrame = null;
   let constellationWebSecondAnimFrame = null;
   let constellationInteractionSetup = false;
@@ -181,6 +120,9 @@
   const CONSTELLATION_INTERACTION_DELAY_MS = 4000;
   const CONSTELLATION_HINT_DELAY_MS = 4000;
 
+  // Guard against stacking zoom listeners across narrative replays.
+  let roadLabelListenerAttached = false;
+
   function safeGet(key) {
     try { return localStorage.getItem(key); } catch(e) { return null; }
   }
@@ -194,13 +136,12 @@
 
   // Defer to main.js's full theme application (light preset + road
   // colors + circle strokes) when leaving the narrative. Falls back to
-  // a bare lightPreset call if main.js hasn't loaded yet (defensive —
-  // narrative.js runs before main.js in the script order, but
-  // applyMapTheme is assigned synchronously when main.js is parsed).
+  // a bare lightPreset call if main.js hasn't loaded yet.
   function applyPostNarrativeTheme() {
     let saved = null;
     try { saved = localStorage.getItem('map_theme'); } catch (e) {}
-    // Default-night matches main.js's initTheme default.
+    // Default to day for first-time visitors; honor saved preference for
+    // returning visitors who have explicitly toggled to night.
     const theme = saved === 'night' ? 'night' : 'day';
     if (typeof window.applyMapTheme === 'function') {
       window.applyMapTheme(theme);
@@ -209,15 +150,27 @@
     }
   }
 
+  // Show road labels only above zoom 14 — driven by a zoom listener
+  // that persists into exploration mode. Attached once via the
+  // roadLabelListenerAttached guard so replays don't stack listeners.
+  function applyRoadLabelsForZoom() {
+    if (!map) return;
+    try {
+      map.setConfigProperty('basemap', 'showRoadLabels', map.getZoom() >= 15);
+    } catch (e) {}
+  }
+
   function applyExplorationConfig() {
-    // Road colors are now owned by main.js's applyMapTheme (day = white,
-    // night = transparent) so this helper only needs to turn place
-    // labels back on. Without this gap, the narrative's
-    // resetExplorationConfig (labels off + transparent roads) would
-    // persist into the exploration phase.
     try {
       map.setConfigProperty('basemap', 'showPlaceLabels', true);
     } catch(e) {}
+    // Road labels are zoom-conditional — apply immediately for current
+    // zoom, then wire the listener so it stays correct as the user pans.
+    applyRoadLabelsForZoom();
+    if (!roadLabelListenerAttached) {
+      map.on('zoom', applyRoadLabelsForZoom);
+      roadLabelListenerAttached = true;
+    }
   }
 
   function resetExplorationConfig() {
@@ -266,9 +219,6 @@
     if (placeCardEl) placeCardEl.classList.remove('is-visible');
   }
 
-  // Look up a hero place by its osm_id and call showPlaceCard with its
-  // actual name + soul_summary if present, falling back to the provided
-  // name and empty soul. Used by Beats 4 and 6.
   function showHeroCard(placeId, fallbackName) {
     const fb = window.featuresById;
     const place = fb && fb.get(placeId);
@@ -297,9 +247,8 @@
     if (now - lastPulseUpdate < PULSE_THROTTLE_MS) return;
     lastPulseUpdate = now;
 
-    // Base radius scales with zoom — same stops as the expression
     const zoom = map.getZoom();
-    const baseRadius = 1 + Math.max(0, Math.min(1, (zoom - 10) / 5)) * 4; // 2 at z10, 6 at z15
+    const baseRadius = 1 + Math.max(0, Math.min(1, (zoom - 10) / 5)) * 4;
 
     let anyActive = false;
     for (let g = 0; g < TOTAL_GROUPS; g++) {
@@ -308,7 +257,7 @@
       anyActive = true;
       const elapsed = (now - startedAt) / 1000;
       const phase = elapsed * PULSE_FREQUENCY_HZ;
-      const r = baseRadius + Math.sin(phase) * (baseRadius * 0.4); // pulse amplitude scales with size
+      const r = baseRadius + Math.sin(phase) * (baseRadius * 0.4);
       const b = 0.9 + Math.sin(phase + 1) * 0.4;
       const id = constellationLayerId(g);
       try {
@@ -402,16 +351,9 @@
   }
 
   // --- Beat 2 subway lines ---
-  // Progressive polyline draw on the shared window.deckInstance. Two deck
-  // layers per render: a wide low-alpha glow + the main thin line. We share
-  // the canvas with the narrative arc layers, but the subway runs only
-  // during Beat 2 (before any arcs draw at Beat 4), so there's no overlap.
 
   function renderSubwayLines() {
     if (!window.deckInstance) return;
-    // Each segment carries its own alpha (set by buildSubwaySegments). The
-    // glow layer scales proportionally to the main line's alpha so both
-    // fade together during undraw.
     try {
       window.deckInstance.setProps({
         layers: [
@@ -438,18 +380,12 @@
     } catch (e) {}
   }
 
-  // Fetch real subway-line geometry from /data/mta.json.
   async function fetchSubwayLines() {
     try {
       const res = await fetch('./data/mta.json');
       const geojson = await res.json();
       const features = (geojson.features || []).slice(0, 15);
 
-      // Flatten each feature's geometry into a single coord array so each
-      // gets its own animated trace. MultiLineString segments are
-      // concatenated end-to-end — visually fine for the Beat 2 draw/undraw
-      // pass since the gaps between adjacent boroughs read as one stroke.
-      // Colors cycle through STAR_PALETTE by feature index.
       const lines = [];
       features.forEach((feature, i) => {
         if (!feature || !feature.geometry) return;
@@ -458,7 +394,6 @@
         if (geom.type === 'LineString') {
           lines.push({ coords: geom.coordinates, color });
         } else if (geom.type === 'MultiLineString') {
-          // Each sub-line animates independently so there are no jumps across gaps
           geom.coordinates.forEach((seg) => {
             if (seg.length >= 2) lines.push({ coords: seg, color });
           });
@@ -468,9 +403,6 @@
     } catch (e) {}
   }
 
-  // Builds segments for ONE line between two fractional positions along its
-  // polyline. Walking segment by segment lets a partial start AND a partial
-  // end coexist, which we need for both draw (0 → t) and undraw (t → 1).
   function buildSubwaySegments(coords, startFrac, endFrac, alpha, color) {
     const a = alpha == null ? 180 : alpha;
     const c = color || [255, 255, 255];
@@ -517,7 +449,6 @@
       const eased = 1 - Math.pow(1 - t, 2);
       const out = [];
       for (const line of subwayLinesData) {
-        // Each line grows from its start point (0 → eased).
         const segs = buildSubwaySegments(line.coords, 0, eased, 180, line.color);
         for (const s of segs) out.push(s);
       }
@@ -527,7 +458,6 @@
         subwayAnimFrame = requestAnimationFrame(frame);
       } else {
         subwayAnimFrame = null;
-        // Hold the fully-drawn grid for 100ms, then start the undraw pass.
         subwayUndrawTimer = setTimeout(() => {
           subwayUndrawTimer = null;
           undrawSubwayLines();
@@ -537,10 +467,6 @@
     subwayAnimFrame = requestAnimationFrame(frame);
   }
 
-  // Wipe-forward undraw: the head of each line shrinks while the tail
-  // remains, mirroring the direction of the draw. As undrawFrac walks
-  // 0 → 1, each line shows segments from (undrawFrac, 1) — the start
-  // disappears first, the end disappears last.
   function undrawSubwayLines() {
     if (!window.deckInstance) return;
     if (!subwayLinesData || subwayLinesData.length === 0) return;
@@ -556,8 +482,6 @@
       const eased = 1 - Math.pow(1 - t, 2);
       const out = [];
       for (const line of subwayLinesData) {
-        // Visible portion is (eased, 1] — the start fraction climbs while
-        // the end stays pinned at the polyline's last point.
         const segs = buildSubwaySegments(line.coords, eased, 1, 180, line.color);
         for (const s of segs) out.push(s);
       }
@@ -583,9 +507,6 @@
       clearTimeout(subwayUndrawTimer);
       subwayUndrawTimer = null;
     }
-    // Only nuke deck layers if subway is actually showing — otherwise we'd
-    // also wipe whatever the narrative beats have drawn (arcs etc.) on the
-    // shared deck canvas.
     if (subwayLineData.length > 0) {
       subwayLineData = [];
       try { window.deckInstance.setProps({ layers: [] }); } catch (e) {}
@@ -593,11 +514,7 @@
   }
 
   // --- Beat 4/5 LGBTQ web ---
-  // Filter the dataset to LGBTQ+ tagged places (excluding Henrietta itself),
-  // then bucket into an 8×8 lat/lng grid and pick the highest-review-count
-  // place from each bucket round-robin until we hit `count`. Geographic
-  // spread is more visually striking than top-N-by-reviews, which would
-  // cluster everything in Manhattan/Williamsburg.
+
   function selectLgbtqPlaces(count) {
     const fb = window.featuresById;
     if (!fb) { window.lgbtqPlaces = []; return []; }
@@ -652,10 +569,6 @@
     return selected;
   }
 
-  // Single combined setProps call so the highlight pulse + dot fade + arc
-  // draw can all coexist on deckInstance without one frame's render wiping
-  // another's layers. The order here matches the visual stack (back→front):
-  // rainbow arcs → LGBTQ dots → Henrietta highlight.
   function renderAllNarrativeLayers() {
     if (!window.deckInstance) return;
     const layers = [];
@@ -666,16 +579,10 @@
         data: rainbowLineData,
         getSourcePosition: (d) => d.path[0],
         getTargetPosition: (d) => d.path[1],
-        // Fixed warm-gold glow under every rainbow arc — per-arc colors
-        // live in the foreground line layer below; the glow reads as a
-        // uniform constellation halo regardless of arc hue.
         getColor: () => [255, 224, 102, 45],
         getWidth: 4,
         widthUnits: 'pixels',
       }));
-      // The post-draw pulse mutates each segment's color[3] in place (and
-      // hands renderAllNarrativeLayers a fresh array reference so deck.gl
-      // re-extracts the color buffer), so we can read d.color straight here.
       layers.push(new deck.LineLayer({
         id: 'rainbow-arcs',
         data: rainbowLineData,
@@ -687,18 +594,9 @@
       }));
     }
 
-    // The Henrietta + LGBTQ highlight dots live on Mapbox circle layers
-    // (constellation-star paint props) rather than deck.gl scatterplots —
-    // see startHenriettaHighlight, drawLgbtqDots, and startTropicanaHighlight.
-
     try { window.deckInstance.setProps({ layers }); } catch (e) {}
   }
 
-  // Henrietta highlight — a Mapbox circle layer styled like a constellation
-  // star (warm-white fill, blur 1.2, emissive 1) so it reads as part of the
-  // sky rather than as a distinct deck.gl marker. The radius pulses between
-  // 6 and 10px via setPaintProperty in the rAF, matching the sine cadence
-  // of pulseTick. Runs continuously until stopHenriettaHighlight().
   function startHenriettaHighlight() {
     if (!map) return;
     if (henriettaHighlightAnimFrame !== null) return;
@@ -747,12 +645,13 @@
     const startTime = performance.now();
     function frame(now) {
       const t = ((now - startTime) / 1000) * Math.PI;
-      const r = 18 + Math.sin(t) * 4; // pulses 6..10
+      const r = 18 + Math.sin(t) * 4;
       try { map.setPaintProperty('henrietta-highlight-layer', 'circle-radius', r); } catch (e) {}
       henriettaHighlightAnimFrame = requestAnimationFrame(frame);
     }
     henriettaHighlightAnimFrame = requestAnimationFrame(frame);
   }
+
   function stopHenriettaHighlight() {
     if (henriettaHighlightAnimFrame !== null) {
       cancelAnimationFrame(henriettaHighlightAnimFrame);
@@ -767,10 +666,6 @@
     }
   }
 
-  // Tropicana highlight — same constellation-star look as Henrietta (radius
-  // 6..10 pulse, warm-white, blur 1.2, emissive 1). Added in Beat 7 right
-  // after the Tropicana card appears so the user sees a single bright star
-  // at the destination before the kindred arcs start fanning out.
   function startTropicanaHighlight() {
     if (!map) return;
     if (tropicanaHighlightAnimFrame !== null) return;
@@ -820,7 +715,7 @@
     const startTime = performance.now();
     function frame(now) {
       const t = ((now - startTime) / 1000) * Math.PI;
-      const r = 18 + Math.sin(t) * 4; // pulses 6..10
+      const r = 18 + Math.sin(t) * 4;
       try { map.setPaintProperty('tropicana-highlight-layer', 'circle-radius', r); } catch (e) {}
       tropicanaHighlightAnimFrame = requestAnimationFrame(frame);
     }
@@ -841,15 +736,8 @@
     }
   }
 
-  // 5 waves of dots, 500ms apart. Each wave appends to a single Mapbox
-  // GeoJSON source via setData(); the two circle layers above it (main +
-  // glow) carry constellation paint props so each new dot reads as a star
-  // that just lit up. Once all waves are in, the main layer's radius
-  // pulses 5..8 via setPaintProperty, mirroring pulseTick.
   function drawLgbtqDots(places, onComplete) {
     if (!map) { if (onComplete) onComplete(); return; }
-    // Cancel any in-flight pass — both the wave timers and the post-wave
-    // pulse rAF.
     lgbtqWaveTimers.forEach(clearTimeout);
     lgbtqWaveTimers = [];
     if (lgbtqDotAnimFrame !== null) {
@@ -868,7 +756,6 @@
       properties: {},
     }));
 
-    // Source + layers set up once; subsequent waves only call setData.
     if (!map.getSource('lgbtq-highlight')) {
       map.addSource('lgbtq-highlight', {
         type: 'geojson',
@@ -879,7 +766,6 @@
         map.getSource('lgbtq-highlight').setData({ type: 'FeatureCollection', features: [] });
       } catch (e) {}
     }
-    // Glow layer added first so the bright main star draws on top.
     if (!map.getLayer('lgbtq-highlight-glow')) {
       map.addLayer({
         id: 'lgbtq-highlight-glow',
@@ -936,9 +822,6 @@
     lgbtqWaveTimers.push(pulseStart);
   }
 
-  // Radius pulse 5..8 on lgbtq-highlight-layer once all waves are in. Same
-  // sine pattern as pulseTick; the glow layer keeps its fixed 12px radius
-  // so the breathing comes from the bright inner star alone.
   function startLgbtqDotPulse() {
     if (!map) return;
     if (lgbtqDotAnimFrame !== null) {
@@ -948,7 +831,7 @@
     const startTime = performance.now();
     function pulseFrame(now) {
       const t = ((now - startTime) / 1500) * Math.PI;
-      const r = 14 + Math.sin(t) * 4; // 5..8
+      const r = 14 + Math.sin(t) * 4;
       try { map.setPaintProperty('lgbtq-highlight-layer', 'circle-radius', r); } catch (e) {}
       lgbtqDotAnimFrame = requestAnimationFrame(pulseFrame);
     }
@@ -972,10 +855,6 @@
     }
   }
 
-  // Progressive arc draw over 2000ms — same point-by-point reveal pattern
-  // as drawNarrativeArcs, but each arc gets a random rainbow color with
-  // jittered alpha (180–230) so the bouquet feels organic rather than
-  // categorical.
   function drawRainbowArcs(sourcePlace, targetPlaces, onComplete) {
     if (!window.deckInstance || !sourcePlace || !Array.isArray(sourcePlace.coordinates)) {
       if (onComplete) onComplete();
@@ -993,7 +872,7 @@
       .filter((t) => t && Array.isArray(t.coordinates) && t.coordinates.length === 2)
       .map((t) => {
         const base = RAINBOW_ARC_COLORS[Math.floor(Math.random() * RAINBOW_ARC_COLORS.length)];
-        const alpha = 160 + Math.floor(Math.random() * 40); // 120..160
+        const alpha = 160 + Math.floor(Math.random() * 40);
         return {
           points: sampleArcLocal(sourcePlace.coordinates, t.coordinates, ARC_HEIGHT, ARC_POINTS),
           color: [base[0], base[1], base[2], alpha],
@@ -1032,12 +911,6 @@
     rainbowArcsAnimFrame = requestAnimationFrame(frame);
   }
 
-  // Continuous breathing on the fully-drawn rainbow web. Alpha range
-  // 55..105 driven by Math.sin(Date.now()/1500). Mutates each segment's
-  // color[3] in place AND reassigns rainbowLineData to a fresh array each
-  // frame — both are needed: in-place keeps the closure-captured refs valid,
-  // the new array reference invalidates deck.gl's cached color buffer so it
-  // re-extracts.
   function startRainbowPulse() {
     if (rainbowArcsSecondAnimFrame !== null) {
       cancelAnimationFrame(rainbowArcsSecondAnimFrame);
@@ -1068,8 +941,6 @@
     renderAllNarrativeLayers();
   }
 
-  // Called at Beat 6 entry. Stops all Beat 4/5 animations and emits a final
-  // empty setProps so the deck canvas is clear before Tropicana arcs draw.
   function clearAllLgbtqLayers() {
     stopHenriettaHighlight();
     clearLgbtqDots();
@@ -1354,12 +1225,6 @@
   }
 
   // --- 9-beat narrative arc rendering ---
-  // Reuses sampleArcLocal / interpolateColorRgbLocal (defined above) with
-  // the star palette and dedicated deck.gl layer IDs:
-  //   First-tier:  narrative-arcs-glow + narrative-arcs
-  //   Second-tier: narrative-arcs-second-glow + narrative-arcs-second
-  // Both tiers can render simultaneously — drawNarrativeSecondTierArcs
-  // ADDS to the first-tier layers rather than replacing them.
 
   function syncDeckForNarrative() {
     if (!window.deckInstance || !map) return;
@@ -1579,12 +1444,6 @@
   }
 
   // --- Right-side cards ---
-  // Two stacked cards on the right edge of the viewport:
-  //   #narrative-right-card     — place name + soul summary
-  //   #narrative-kindred-card   — list of kindred places, with optional
-  //                                web-active badge in the header
-  // When the kindred card appears, the place card slides UP via
-  // .is-slid-up (CSS translateY) so the kindred card sits beneath it.
 
   function lookupPlace(placeId) {
     const fb = window.featuresById;
@@ -1605,10 +1464,7 @@
       (place && place.name) || fallbackName;
     narrativePlaceCardEl.querySelector('.narrative-place-soul').textContent =
       (place && place.soul_summary) || '';
-    // Reset any prior slid-up state so a fresh show starts in the bottom
-    // position.
     narrativePlaceCardEl.classList.remove('is-slid-up');
-    // Force layout before adding is-visible so the transition runs.
     void narrativePlaceCardEl.offsetWidth;
     narrativePlaceCardEl.classList.add('is-visible');
   }
@@ -1622,8 +1478,6 @@
   function hideNarrativePlaceCard() {
     if (!narrativePlaceCardEl) return;
     narrativePlaceCardEl.classList.remove('is-visible');
-    // Remove from DOM after the fade-out so a subsequent show rebuilds
-    // cleanly with no slid-up class lingering.
     const el = narrativePlaceCardEl;
     narrativePlaceCardEl = null;
     setTimeout(() => { try { el.remove(); } catch (e) {} }, 450);
@@ -1636,9 +1490,6 @@
     const defaultColor = window.COLOR_DEFAULT || '#888888';
     const color = colorByType[place.osm_type] || defaultColor;
     const name = place.name || '(unnamed)';
-    // Minimal sanitization — names come from OSM and may include quotes;
-    // textContent on the resulting element would be safer, but innerHTML
-    // here lets us batch all rows in one assignment. Use a small escape.
     const safeName = String(name)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -1650,13 +1501,6 @@
     );
   }
 
-  // Wires click handlers on the kindred list items so each item updates
-  // the right-side place card (name + soul summary) and re-centers the
-  // map on the clicked kindred place. Beat advance is suppressed by the
-  // overlay-click guard, which short-circuits on .narrative-kindred-item.
-  // The placeId argument is the *host* place whose kindred list this is —
-  // accepted for symmetry with show/hide calls; the actual click target
-  // is read from each item's data-place-id attribute.
   function attachKindredCardInteraction(/* placeId */) {
     if (!narrativeKindredCardEl) return;
     const items = narrativeKindredCardEl.querySelectorAll('.narrative-kindred-item');
@@ -1692,8 +1536,6 @@
     });
   }
 
-  // Tears down only the second-tier narrative arcs (leaves the first-tier
-  // kindred bouquet intact). Used by the Tropicana web-toggle button.
   function clearNarrativeSecondTierArcs() {
     if (narrativeArcsSecondAnimFrame !== null) {
       cancelAnimationFrame(narrativeArcsSecondAnimFrame);
@@ -1709,19 +1551,12 @@
       narrativeKindredCardEl.id = 'narrative-kindred-card';
       document.body.appendChild(narrativeKindredCardEl);
     }
-    // Stash the host place id so showNarrativeWebBadge can bind the
-    // toggle button to the right source for drawNarrativeSecondTierArcs.
     narrativeKindredCardEl.dataset.placeId = placeId;
     const place = lookupPlace(placeId);
     const ids = (place && Array.isArray(place.similarity_ids))
       ? place.similarity_ids.slice(0, 8)
       : [];
     const itemsHtml = ids.map(buildKindredItemMarkup).join('');
-    // Title is "Kindred Places" by default; Beat 5 overrides to
-    // "LGBTQ+ Welcoming" since the kindred list there is filtered to
-    // the LGBTQ identity matches, not general similarity. The pulse
-    // glow only fires when withPulse is true (Beat 5) so the visual
-    // accent shifts to the Web active button by Beat 7.
     const title = titleOverride || 'Kindred Places';
     const titleClass = 'narrative-kindred-title' + (withPulse ? ' is-pulsing' : '');
     narrativeKindredCardEl.innerHTML =
@@ -1741,13 +1576,10 @@
     if (!badge) return;
     badge.classList.add('is-visible');
     narrativeWebBadgeVisible = true;
-    // Wire the toggle once the badge becomes visible. The button is
-    // rebuilt on every showNarrativeKindredCard call (innerHTML replace),
-    // so the listener has to be attached after each (re)show.
     const toggle = document.getElementById('narrative-web-toggle');
     if (toggle) {
       toggle.addEventListener('click', (e) => {
-        e.stopPropagation(); // suppress beat advance
+        e.stopPropagation();
         if (narrativeSecondLineData.length > 0) {
           clearNarrativeSecondTierArcs();
           toggle.classList.remove('is-active');
@@ -1759,8 +1591,6 @@
           toggle.textContent = '◎ Web active';
         }
       });
-      // Remember which host place the toggle is bound to — Beat 7 wires
-      // this to TROPICANA_ID; future beats could rebind to other places.
       toggle.dataset.placeId = narrativeKindredCardEl.dataset.placeId || TROPICANA_ID;
     }
   }
@@ -1895,32 +1725,12 @@
     hint.classList.add('is-visible');
   }
 
-  // Cinematic camera path driven by a list of keyframes — each entry is
-  // { t, center, zoom, pitch, bearing } where t ∈ [0,1] is the fraction
-  // of totalMs at which that pose should be reached. Adjacent keyframes
-  // are linearly interpolated and the camera is driven per-frame with
-  // map.jumpTo so we get full control over the in-between poses (Mapbox's
-  // flyTo plots its own ballistic arc and ignores any waypoints).
-  //
-  // A global ease-in-out is applied to the wall-clock fraction before
-  // looking up the segment, so the path ramps up and decelerates at the
-  // ends — closer to Mapbox flyTo's default feel than constant-velocity
-  // traversal. easeInOutQuad fixes 0, 0.5, and 1, so keyframes at those
-  // wall-clock fractions are still hit at those moments; intermediate
-  // keyframes shift slightly in time but their order is preserved.
-  //
-  // Bearings are interpolated as plain numbers — keep keyframe bearings
-  // within ±180° of each other or the rotation will go the long way.
+  // --- Camera path animation ---
+
   function easeInOutQuad(x) {
     return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
   }
-  // Catmull-Rom cubic-spline interpolation for one scalar across four
-  // control points (p0 — before segment, p1/p2 — segment endpoints,
-  // p3 — after segment), parameter u ∈ [0,1] along the p1→p2 segment.
-  // Passes exactly through p1 at u=0 and p2 at u=1; tangent at each
-  // endpoint is half the chord of its neighbors, so velocity stays
-  // continuous across consecutive segments — the camera no longer
-  // visibly "kicks" at each keyframe the way it does with linear lerp.
+
   function catmullRom(p0, p1, p2, p3, u) {
     const u2 = u * u;
     const u3 = u2 * u;
@@ -1931,13 +1741,14 @@
       (-p0 + 3 * p1 - 3 * p2 + p3) * u3
     );
   }
+
   function animateCameraPath(keyframes, totalMs, onComplete) {
     clearCameraPath();
     if (!map || !Array.isArray(keyframes) || keyframes.length < 2) {
       if (onComplete) onComplete();
       return;
     }
-    
+
     const startTime = performance.now();
     const last = keyframes[keyframes.length - 1];
 
@@ -1958,31 +1769,20 @@
         return;
       }
 
-      // Ease wall-clock progress into a smoothed path progress: slow
-      // start, peak velocity through the middle, slow end.
       const t = easeInOutQuad(rawT);
 
-      // Find the segment containing t. Linear scan; with 5 waypoints in
-      // beat4Path this is trivially cheap.
       let i = 0;
       for (; i < keyframes.length - 2; i++) {
         if (keyframes[i + 1].t >= t) break;
       }
       const a = keyframes[i];
       const b = keyframes[i + 1];
-      // Phantom controls for the spline endpoints: at the very first /
-      // last segment we duplicate the segment's own endpoint so the
-      // spline still has the four points it needs without overshooting
-      // off the ends of the path.
       const aPrev = keyframes[i - 1] || a;
       const bNext = keyframes[i + 2] || b;
       const span = b.t - a.t;
       const segT = span > 0 ? (t - a.t) / span : 0;
 
       try {
-        // Catmull-Rom interpolation per-property. Pitch is clamped to
-        // Mapbox's allowed range — cubic splines can briefly overshoot
-        // a control point's value, and a pitch above 85 throws.
         const pitch = catmullRom(aPrev.pitch, a.pitch, b.pitch, bNext.pitch, segT);
         map.jumpTo({
           center: [
@@ -2012,17 +1812,12 @@
     currentStep = n;
     showStep(n);
 
-    // The constellation interaction beat is gone in the 9-beat flow; this
-    // remains as a safety net in case any prior interactive state lingers.
     if (overlayEl) {
       overlayEl.classList.remove('is-interactive');
       overlayEl.style.pointerEvents = '';
     }
 
     if (n === 1) {
-      // Hide the colored interactive places layer for the entire
-      // narrative. We don't restore it until the CTA is clicked (see
-      // exitNarrative).
       try {
         map.setFilter(PLACES_LAYER, ['==', ['get', 'id'], '__hidden__']);
         map.setPaintProperty(PLACES_LAYER, 'circle-opacity-transition', { duration: 0, delay: 0 });
@@ -2038,11 +1833,6 @@
     }
 
     else if (n === 2) {
-      const c = map.getCenter();
-      // Constellation hint — prep the first 3 groups (visibility + fade-in
-      // transition) so revealGroup can actually animate them in, then
-      // stagger the reveals. constellationReveal() in Beat 3 redoes the
-      // full setup for all 20 groups, so any prep here is harmless.
       [0, 1].forEach((g) => {
         const id = constellationLayerId(g);
         try {
@@ -2053,48 +1843,27 @@
       });
       constellationTimers.push(setTimeout(() => revealGroup(0), 500));
       constellationTimers.push(setTimeout(() => revealGroup(1), 1000));
-      // After ~6s the hint groups fade back out (FADE_OUT_MS = 1500ms,
-      // so they're fully gone by ~7.5s). Pushed onto constellationTimers
-      // so advancing to Beat 3 mid-fade cancels it — constellationReveal
-      // will reset every group's opacity anyway.
       constellationTimers.push(setTimeout(() => fadeOutConstellation(), 4500));
-      // Subway lines fade in alongside the constellation hint.
       setTimeout(() => drawSubwayLines(), 400);
     }
 
     else if (n === 3) {
-      // No interaction this beat — just trigger the constellation reveal
-      // and let it play through. PLACES_LAYER stays hidden.
       clearSubwayLines();
       constellationReveal();
     }
 
     else if (n === 4) {
-      // Henrietta Hudson arrival. Instead of a single Mapbox flyTo
-      // (which plots its own ballistic arc through the air), drive the
-      // camera through a curated path of waypoints — over Brooklyn, up
-      // to Midtown, swinging west, then settling on Henrietta. Mapbox's
-      // flyTo would fly directly through the air and skip these
-      // waypoints; animateCameraPath drives jumpTo per frame so we get
-      // exactly the path described.
-      //
-      // The +1000ms highlight timer and +2500ms LGBTQ-dots timer below
-      // fire on wall-clock and are independent of camera position, so
-      // they stay unchanged.
       clearAllNarrativeBeatTimers();
       const beat4Path = [
-        { t: 0.0,  center: [-73.95, 40.7],     zoom: 11.1, pitch: 40, bearing: 0   },
-        { t: 0.33, center: [-73.99498, 40.71287], zoom: 15, pitch: 70, bearing: 0  },
-        { t: 0.75,  center: [-74.00608, 40.732055], zoom: 15.7, pitch: 70, bearing: 0 },
-        { t: 1.0,  center: HENRIETTA_COORDS,    zoom: 16, pitch: 76, bearing: 40 },
+        { t: 0.0,  center: [-73.95, 40.7],             zoom: 11.1, pitch: 40, bearing: 0  },
+        { t: 0.33, center: [-73.99498, 40.71287],       zoom: 15,   pitch: 70, bearing: 0  },
+        { t: 0.75, center: [-74.00608, 40.732055],      zoom: 15.7, pitch: 70, bearing: 0  },
+        { t: 1.0,  center: HENRIETTA_COORDS,            zoom: 16,   pitch: 76, bearing: 40 },
       ];
       animateCameraPath(beat4Path, 10000, () => {});
       henriettaHighlightTimer = setTimeout(() => {
         henriettaHighlightTimer = null;
         startHenriettaHighlight();
-        // Same +1000ms beat as the highlight — the place card surfaces
-        // alongside the pulsing star so the user sees Henrietta's name
-        // and soul summary while the dots fade in around it.
         showNarrativePlaceCard(HENRIETTA_ID, HENRIETTA_NAME);
       }, 6000);
       lgbtqDotsTimer = setTimeout(() => {
@@ -2105,11 +1874,6 @@
     }
 
     else if (n === 5) {
-      // Rainbow arcs radiate from Henrietta to the same 50 places picked in
-      // Beat 4 (cached on window.lgbtqPlaces so the bouquet matches what
-      // the user just watched fade in). Camera pulls back to a city-wide
-      // view in parallel so the full web becomes visible. Beat 4's place
-      // card slides up to make room for the interactive kindred list.
       clearAllNarrativeBeatTimers();
       let places = window.lgbtqPlaces;
       if (!places || !places.length) places = selectLgbtqPlaces(50);
@@ -2120,10 +1884,6 @@
       if (window.innerWidth > 640) slideUpNarrativePlaceCard();
       henriettaKindredCardTimer = setTimeout(() => {
         henriettaKindredCardTimer = null;
-        // Beat 5's kindred list is the LGBTQ identity-matched set, so
-        // override the header label and pulse the title to call out
-        // the new card. Beat 6 reuses showNarrativeKindredCard with
-        // defaults (Kindred Places, no pulse).
         showNarrativeKindredCard(HENRIETTA_ID, 'LGBTQ+ Welcoming', true);
         attachKindredCardInteraction(HENRIETTA_ID);
       }, 300);
@@ -2141,9 +1901,6 @@
     }
 
     else if (n === 6) {
-      // Tropicana arrival + first-tier kindred. Wipe Beat 4/5 LGBTQ
-      // layers + any prior arcs before flying so the deck canvas is
-      // clean. (clearAllLgbtqLayers internally calls stopHenriettaHighlight.)
       clearAllLgbtqLayers();
       clearNarrativeArcs();
       hideNarrativeKindredCard();
@@ -2156,11 +1913,6 @@
         bearing: 210,
         duration: 4000,
       });
-      // Sequence: at +0.5s the Tropicana card + highlight star surface;
-      // at +1.5s the card slides up and first-tier kindred arcs draw;
-      // at +1.8s the kindred list side card appears beneath the slid-up
-      // card with click handlers wired. Beat 7 then takes over for the
-      // web (second-tier) activation.
       tropicanaCardTimer = setTimeout(() => {
         tropicanaCardTimer = null;
         showNarrativePlaceCard(TROPICANA_ID, TROPICANA_NAME);
@@ -2186,15 +1938,7 @@
         bearing: 180,
         duration: 4000,
       });
-      // Web activation. First-tier arcs + kindred card already landed
-      // in Beat 6 — this beat just surfaces the "Web active" badge,
-      // draws the second-tier arcs, and toggles the button's is-active
-      // class so the badge text picks up the pulsing-glow animation.
-      // No camera move; we hold on the same Tropicana kindred view.
       showNarrativeWebBadge();
-      // Guard: if the user already toggled the web via the (now-visible)
-      // badge button during the brief window between Beat 6 and Beat 7,
-      // don't re-draw the same arcs on top of themselves.
       if (narrativeSecondLineData.length === 0 && narrativeArcsSecondAnimFrame === null) {
         drawNarrativeSecondTierArcs(TROPICANA_ID);
       }
@@ -2206,8 +1950,6 @@
     }
 
     else if (n === 8) {
-      // Finale: clear arcs + cards, pull camera back, reveal CTA. The
-      // constellation stays visible behind the wide view.
       clearNarrativeArcs();
       clearTropicanaHighlight();
       hideNarrativeKindredCard();
@@ -2233,12 +1975,7 @@
   function exitNarrative() {
     safeSet(LS_KEY, 'true');
     teardownConstellationInteraction(map);
-    // Cancel every narrative beat timer + the narrative arc rAFs + both
-    // right-side cards, before the rest of the cleanup runs.
     clearAllNarrativeBeatTimers();
-    // Belt-and-suspenders: clearAllNarrativeBeatTimers also calls
-    // clearCameraPath, but make the intent explicit here so a future
-    // refactor of the beat-timer helper can't strand an in-flight rAF.
     clearCameraPath();
     clearSubwayLines();
     clearAllLgbtqLayers();
@@ -2256,9 +1993,6 @@
     document.body.classList.remove('narrative-active');
     hidePlaceCard();
 
-    // Default to night on narrative exit (or honor the user's saved
-    // preference if they previously toggled to day). main.js owns the
-    // road-color + stroke + lightPreset bundle via applyMapTheme.
     applyExplorationConfig();
     applyPostNarrativeTheme();
 
@@ -2274,7 +2008,6 @@
     hideConstellationLayer();
 
     try {
-      // Restore full filter on exit
       if (originalFilter != null) map.setFilter(PLACES_LAYER, originalFilter);
       else map.setFilter(PLACES_LAYER, null);
       map.setPaintProperty(PLACES_LAYER, 'circle-opacity-transition', { duration: 300, delay: 0 });
@@ -2331,10 +2064,6 @@
       if (e.target.closest && (e.target.closest('#narrative-cta') || e.target.closest('#narrative-skip'))) {
         return;
       }
-      // Right-side cards + their controls are interactive surfaces from
-      // Beat 4 onward. Clicks land on these elements (or bubble up to the
-      // overlay) — guard the advance so users can browse the kindred
-      // list and toggle the web without skipping to the next beat.
       if (e.target.closest && (
         e.target.closest('#narrative-right-card') ||
         e.target.closest('#narrative-kindred-card') ||
@@ -2343,7 +2072,6 @@
       )) {
         return;
       }
-      // Don't advance during Beat 3 interactive mode
       if (overlayEl.classList.contains('is-interactive')) return;
       if (currentStep < 8) goToStep(currentStep + 1);
     });
@@ -2361,17 +2089,11 @@
     if (!mapInstance) return;
     map = mapInstance;
 
-    // Kick off the subway-line fetch immediately. Beat 2 fires ~30s later
-    // so the data is almost certainly ready by then; drawSubwayLines() skips
-    // the animation cleanly if it isn't (or if the fetch failed).
     fetchSubwayLines();
 
     if (safeGet(LS_KEY) === 'true') {
       document.body.classList.remove('narrative-active');
       applyExplorationConfig();
-      // initTheme in main.js fires later in the boot sequence and will
-      // re-apply the full theme; this call covers the gap before that
-      // runs so the basemap doesn't flash through a stale state.
       applyPostNarrativeTheme();
       return;
     }
@@ -2381,13 +2103,6 @@
 
     document.body.classList.add('narrative-active');
 
-    // Force night basemap + narrative-specific roads/labels regardless
-    // of the user's saved day/night preference — the narrative is
-    // cinematic and always plays at night. The user's saved theme is
-    // restored on exit via applyPostNarrativeTheme. Without these two
-    // calls here, a user who had previously toggled to day would see
-    // initTheme (called by main.js right after initNarrative returns)
-    // apply day and the narrative would play in day mode.
     setLightPreset('night');
     resetExplorationConfig();
 
