@@ -784,8 +784,12 @@ function drawKindredLines(placeId) {
     if (now - lastPaintUpdate >= PAINT_THROTTLE_MS) {
       lastPaintUpdate = now;
       try {
-        map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity', eased);
-        map.setPaintProperty('places-circles-connected-overlay', 'circle-stroke-width', eased * 1.5);
+        map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity', [
+          'case', ['boolean', ['feature-state', 'connected'], false], eased, 0,
+        ]);
+        map.setPaintProperty('places-circles-connected-overlay', 'circle-stroke-width', [
+          'case', ['boolean', ['feature-state', 'connected'], false], eased * 1.5, 0,
+        ]);
       } catch (e) {}
     }
 
@@ -794,8 +798,12 @@ function drawKindredLines(placeId) {
     } else {
       arcAnimFrame = null;
       try {
-        map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity', 1);
-        map.setPaintProperty('places-circles-connected-overlay', 'circle-stroke-width', 1.5);
+        map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity', [
+          'case', ['boolean', ['feature-state', 'connected'], false], 1, 0,
+        ]);
+        map.setPaintProperty('places-circles-connected-overlay', 'circle-stroke-width', [
+          'case', ['boolean', ['feature-state', 'connected'], false], 1.5, 0,
+        ]);
         map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity-transition', { duration: 400, delay: 0 });
       } catch (e) {}
       if (showSecondTier && ids.length > 0) {
@@ -907,8 +915,12 @@ function drawSecondTierLines(firstTierIds) {
       if (now - lastPaintUpdate >= PAINT_THROTTLE_MS) {
         lastPaintUpdate = now;
         try {
-          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', eased * 0.7);
-          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', eased * 1.0);
+          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', [
+            'case', ['boolean', ['feature-state', 'second_connected'], false], eased * 0.7, 0,
+          ]);
+          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', [
+            'case', ['boolean', ['feature-state', 'second_connected'], false], eased * 1.0, 0,
+          ]);
         } catch (e) {}
       }
 
@@ -917,8 +929,12 @@ function drawSecondTierLines(firstTierIds) {
       } else {
         secondTierAnimFrame = null;
         try {
-          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', 0.7);
-          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', 1.0);
+          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', [
+            'case', ['boolean', ['feature-state', 'second_connected'], false], 0.7, 0,
+          ]);
+          map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', [
+            'case', ['boolean', ['feature-state', 'second_connected'], false], 1.0, 0,
+          ]);
           map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity-transition', { duration: 400, delay: 0 });
         } catch (e) {}
       }
