@@ -2087,7 +2087,15 @@ function initTheme() {
   // Default to night — the narrative ends on night, and the map's
   // cinematic look is the night basemap with lit-up dots. Day is opt-in.
   const initial = saved === 'day' ? 'day' : 'night';
-  applyMapTheme(initial);
+  // Skip the initial apply while the narrative is running — narrative.js
+  // has already forced night (setLightPreset + resetExplorationConfig)
+  // and applying the saved theme here would override that and flip the
+  // basemap to day mid-intro for users who'd previously chosen day.
+  // The user's saved preference is restored by applyPostNarrativeTheme
+  // on narrative exit, which calls back into applyMapTheme.
+  if (!document.body.classList.contains('narrative-active')) {
+    applyMapTheme(initial);
+  }
   toggle.addEventListener('click', () => {
     const next = document.body.classList.contains('theme-night') ? 'day' : 'night';
     try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch (e) {}

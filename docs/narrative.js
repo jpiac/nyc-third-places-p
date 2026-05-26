@@ -2381,6 +2381,16 @@
 
     document.body.classList.add('narrative-active');
 
+    // Force night basemap + narrative-specific roads/labels regardless
+    // of the user's saved day/night preference — the narrative is
+    // cinematic and always plays at night. The user's saved theme is
+    // restored on exit via applyPostNarrativeTheme. Without these two
+    // calls here, a user who had previously toggled to day would see
+    // initTheme (called by main.js right after initNarrative returns)
+    // apply day and the narrative would play in day mode.
+    setLightPreset('night');
+    resetExplorationConfig();
+
     if (originalFilter == null && originalOpacity == null) {
       try {
         originalFilter = map.getFilter(PLACES_LAYER);

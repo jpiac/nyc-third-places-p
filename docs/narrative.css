@@ -355,28 +355,43 @@ body.narrative-active .legend {
    Web active button. Same easing and dual-shadow technique as
    .narrative-web-badge.is-active but in a softer warm cream so the
    two pulses don't compete when they're both visible. */
+/* Beat 5 only — the "LGBTQ+ Welcoming" title is wrapped in a warm-
+   gold pill so it reads as a tag/identity badge rather than just a
+   section heading. The pill background + border animate in the same
+   keyframes as the text glow, so the whole pill breathes together. */
 .narrative-kindred-title.is-pulsing {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 240, 180, 0.25);
+  background: rgba(255, 240, 180, 0.05);
   animation: kindred-title-pulse 2.4s ease-in-out infinite;
 }
 @keyframes kindred-title-pulse {
   0%, 100% {
     color: rgba(255, 255, 255, 0.55);
     text-shadow: 0 0 4px rgba(255, 240, 180, 0.2);
+    background: rgba(255, 240, 180, 0.05);
+    border-color: rgba(255, 240, 180, 0.25);
   }
   50% {
     color: rgba(255, 247, 200, 0.95);
     text-shadow:
       0 0 10px rgba(255, 240, 180, 0.7),
       0 0 18px rgba(255, 240, 180, 0.4);
+    background: rgba(255, 240, 180, 0.18);
+    border-color: rgba(255, 240, 180, 0.55);
   }
 }
 /* Respect reduced-motion preference — drop the pulse but keep a
    slightly brighter mid-state so the title still reads as "alive"
-   while it has .is-pulsing. */
+   while it has .is-pulsing. The pill background/border stay visible. */
 @media (prefers-reduced-motion: reduce) {
   .narrative-kindred-title.is-pulsing {
     animation: none;
     color: rgba(255, 247, 200, 0.9);
+    background: rgba(255, 240, 180, 0.12);
+    border-color: rgba(255, 240, 180, 0.4);
   }
 }
 .narrative-web-badge {
@@ -384,10 +399,17 @@ body.narrative-active .legend {
   font-size: 11px;
   color: #ffe066;
   opacity: 0;
+  /* Inert until Beat 7 activates the web — without this, a stray
+     hover over the (invisible) button area would trigger the :hover
+     rule below and reveal the button at 0.8 opacity. .is-visible
+     restores pointer-events: auto so the toggle becomes clickable
+     once the narrative actually surfaces it. */
+  pointer-events: none;
   transition: opacity 0.3s ease;
 }
 .narrative-web-badge.is-visible {
   opacity: 1;
+  pointer-events: auto;
 }
 /* Web badge is rendered as a <button> from Beat 7 onward so it can toggle
    the second-tier arcs on/off. Strip the browser defaults so it visually
@@ -402,24 +424,48 @@ button.narrative-web-badge {
 button.narrative-web-badge:hover {
   opacity: 0.8;
 }
-/* While the web is active, the "◎ Web active" text pulses with a warm
-   gold glow so it reads as an alive/live state — distinguishes it from
-   "◎ Web off" which is a plain static color. The animation runs as long
-   as .is-active is on the button; toggling off (in the click handler)
-   removes the class and stops the pulse. */
+/* While the web is active, "◎ Web active" is wrapped in a warm-gold
+   pill that pulses in sync with the text glow — matches the LGBTQ+
+   Welcoming pill treatment in Beat 5 but in the bolder gold palette.
+   The pill chassis (padding, radius, base border/background) lives on
+   the static rule; the keyframes drive color + text-shadow + background
+   + border-color together so the whole pill breathes. When the user
+   toggles the web off (.is-active removed), the underlying
+   button.narrative-web-badge rule re-wins (background: transparent,
+   border: none, padding: 0) and the button reverts to plain text. */
 .narrative-web-badge.is-active {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 224, 102, 0.3);
+  background: rgba(255, 224, 102, 0.08);
   animation: web-active-pulse 1.6s ease-in-out infinite;
 }
 @keyframes web-active-pulse {
   0%, 100% {
-    text-shadow: 0 0 4px rgba(255, 224, 102, 0.5);
     color: #ffe066;
+    text-shadow: 0 0 4px rgba(255, 224, 102, 0.5);
+    background: rgba(255, 224, 102, 0.08);
+    border-color: rgba(255, 224, 102, 0.3);
   }
   50% {
+    color: #fff7c0;
     text-shadow:
       0 0 14px rgba(255, 224, 102, 0.95),
       0 0 22px rgba(255, 224, 102, 0.55);
+    background: rgba(255, 224, 102, 0.22);
+    border-color: rgba(255, 224, 102, 0.7);
+  }
+}
+/* Reduced-motion: drop the pulse but keep a static mid-intensity pill
+   so it still reads as the "alive" state vs. the plain "Web off" text. */
+@media (prefers-reduced-motion: reduce) {
+  .narrative-web-badge.is-active {
+    animation: none;
     color: #fff7c0;
+    background: rgba(255, 224, 102, 0.18);
+    border-color: rgba(255, 224, 102, 0.55);
   }
 }
 .narrative-kindred-item {
