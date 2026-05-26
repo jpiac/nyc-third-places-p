@@ -1864,7 +1864,7 @@
       henriettaHighlightTimer = setTimeout(() => {
         henriettaHighlightTimer = null;
         startHenriettaHighlight();
-        showNarrativePlaceCard(HENRIETTA_ID, HENRIETTA_NAME);
+        if (window.innerWidth > 640) showNarrativePlaceCard(HENRIETTA_ID, HENRIETTA_NAME);
       }, 6000);
       lgbtqDotsTimer = setTimeout(() => {
         lgbtqDotsTimer = null;
@@ -1884,8 +1884,10 @@
       if (window.innerWidth > 640) slideUpNarrativePlaceCard();
       henriettaKindredCardTimer = setTimeout(() => {
         henriettaKindredCardTimer = null;
-        showNarrativeKindredCard(HENRIETTA_ID, 'LGBTQ+ Welcoming', true);
-        attachKindredCardInteraction(HENRIETTA_ID);
+        if (window.innerWidth > 640) {
+          showNarrativeKindredCard(HENRIETTA_ID, 'LGBTQ+ Welcoming', true);
+          attachKindredCardInteraction(HENRIETTA_ID);
+        }
       }, 300);
       lgbtqArcTimer = setTimeout(() => {
         lgbtqArcTimer = null;
@@ -1915,7 +1917,7 @@
       });
       tropicanaCardTimer = setTimeout(() => {
         tropicanaCardTimer = null;
-        showNarrativePlaceCard(TROPICANA_ID, TROPICANA_NAME);
+        if (window.innerWidth > 640) showNarrativePlaceCard(TROPICANA_ID, TROPICANA_NAME);
         startTropicanaHighlight();
       }, 500);
       tropicanaKindredTimer = setTimeout(() => {
@@ -1925,8 +1927,10 @@
       }, 1500);
       tropicanaKindredCardTimer = setTimeout(() => {
         tropicanaKindredCardTimer = null;
-        showNarrativeKindredCard(TROPICANA_ID);
-        attachKindredCardInteraction(TROPICANA_ID);
+        if (window.innerWidth > 640) {
+          showNarrativeKindredCard(TROPICANA_ID);
+          attachKindredCardInteraction(TROPICANA_ID);
+        }
       }, 1800);
     }
 
