@@ -71,7 +71,7 @@ body.narrative-active #narrative-overlay,
   padding: 48px 56px;
   text-align: center;
   pointer-events: none;
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Impact', Georgia, serif;
   font-size: 32px;
   line-height: 1.35;
   color: #ffffff;
@@ -108,7 +108,7 @@ body.narrative-active #narrative-overlay,
 }
 
 .narrative-text blockquote {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-style: italic;
   font-size: 28px;
   line-height: 1.35;
@@ -136,7 +136,7 @@ body.narrative-active #narrative-overlay,
 }
 
 .narrative-count {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Impact', Georgia, serif;
   font-size: 42px;
   font-weight: 700;
   line-height: 1.15;
@@ -199,7 +199,7 @@ body.narrative-active #narrative-overlay,
   transform: translateY(0);
 }
 .narrative-place-name {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Impact', Georgia, serif;
   font-size: 22px;
   font-weight: 700;
   line-height: 1.15;
@@ -321,7 +321,7 @@ body.narrative-active .legend {
 }
 
 .narrative-place-name {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Impact', Georgia, serif;
   font-size: 20px;
   font-weight: 700;
   line-height: 1.15;

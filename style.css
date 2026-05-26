@@ -5,8 +5,8 @@
   --accent: #E07A5F;
   --border: #e7e2d6;
   --editorial-bg: #f5f1ea;
-  --font-display: 'Playfair Display', Georgia, serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Impact', Georgia, serif;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --transition: 250ms ease;
   --shadow-sidebar: -4px 0 24px rgba(0, 0, 0, 0.10);
 }
@@ -240,7 +240,7 @@ html, body {
   border-color: var(--accent);
 }
 .kindred-name {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 16px;
   font-weight: 600;
   line-height: 1.2;
@@ -633,7 +633,7 @@ body.narrative-active .mapboxgl-ctrl-group {
   margin-bottom: 0;
 }
 .about-section h3 {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 16px;
   font-weight: 700;
   margin: 0 0 10px;
