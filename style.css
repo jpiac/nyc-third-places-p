@@ -376,15 +376,23 @@ html, body {
 /* Legend toggle — header row above .legend-content. Collapses the body
    via max-height + opacity transitions; initLegend() collapses it by
    default on viewports <= 640px. */
+/* Legend top row — holds the Places collapse/expand toggle on the left
+   and the day/night theme toggle on the right. */
+.legend-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+}
 .legend-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
+  flex: 1;
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 0 0 8px;
+  padding: 0;
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
@@ -393,6 +401,35 @@ html, body {
   text-transform: uppercase;
 }
 .legend-toggle:hover { opacity: 0.8; }
+/* Theme toggle — circular button next to the legend label. Swaps the
+   Mapbox basemap lightPreset between 'day' and 'night' and adds
+   body.theme-night so the rest of the chrome's dark-mode overrides
+   below take effect. Icon swaps between ☾ (when on day, inviting night)
+   and ☼ (when on night, inviting day). */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text);
+  padding: 0;
+  font: inherit;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.theme-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.theme-toggle-icon {
+  font-size: 14px;
+  line-height: 1;
+}
 .legend-toggle-icon {
   font-size: 26px;
   opacity: 0.7;
@@ -1143,3 +1180,142 @@ body.narrative-active .mapboxgl-ctrl-group {
 @media (max-width: 640px) {
   .search-container { display: none; }
 }
+
+/* ============================================================
+   Night theme — applied when body.theme-night is set by initTheme.
+   Pairs with the Mapbox basemap lightPreset: 'night' to keep the
+   chrome and the map visually consistent.
+   ============================================================ */
+body.theme-night {
+  --bg: #14141f;
+  --text: #ececf2;
+  --text-muted: #a0a0b0;
+  --border: #353548;
+  --editorial-bg: #20202e;
+  --shadow-sidebar: -4px 0 28px rgba(0, 0, 0, 0.5);
+}
+
+/* Header — translucent so the dark basemap shows through, but
+   dark enough that text reads cleanly. */
+body.theme-night .app-header {
+  background: rgba(20, 20, 30, 0.85);
+  border-bottom-color: var(--border);
+}
+
+/* Sidebar (place detail) — solid dark panel. */
+body.theme-night .sidebar {
+  background: #1a1a26;
+}
+body.theme-night .place-soul {
+  color: #d8d8e0;
+}
+body.theme-night .place-editorial {
+  color: #c8c8d4;
+  background: var(--editorial-bg);
+}
+body.theme-night .kindred-card {
+  color: var(--text);
+}
+/* Sidebar close button hover — light wash instead of the dark wash that
+   reads as "no hover" on a dark surface. */
+body.theme-night .sidebar-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Legend panel. */
+body.theme-night .legend {
+  background: rgba(20, 20, 30, 0.85);
+}
+
+/* About panel — solid dark, matches sidebar. */
+body.theme-night #about-panel {
+  background: #1a1a26;
+}
+body.theme-night .about-section p,
+body.theme-night .about-section ul {
+  color: #c8c8d4;
+}
+body.theme-night .about-sources p {
+  color: var(--text-muted);
+}
+
+/* Search input row + dropdown panels. The static rgb(255,249,196)
+   filter-select rules from the original spec still apply; we just
+   swap the panel backgrounds + input text for the dark theme. */
+body.theme-night .search-input-row {
+  background: var(--editorial-bg);
+  border-color: var(--border);
+}
+body.theme-night .search-input-row:focus-within {
+  background: #2c2c40;
+}
+body.theme-night .search-input { color: var(--text); }
+body.theme-night .search-input::placeholder { color: var(--text-muted); }
+body.theme-night .search-filters,
+body.theme-night .search-results {
+  background: #1a1a26;
+  border-color: var(--border);
+}
+body.theme-night .search-filter-select {
+  background: #2a2a3a;
+  color: var(--text);
+  border-color: var(--border);
+}
+body.theme-night .search-filter-select option {
+  background: #2a2a3a;
+  color: var(--text);
+}
+body.theme-night .search-result-item { color: var(--text); }
+body.theme-night .search-result-item:hover { background: var(--editorial-bg); }
+
+/* Feedback modal — kept the structure intact, just swap surfaces. */
+body.theme-night .feedback-modal-content,
+body.theme-night #feedback-modal-content,
+body.theme-night .feedback-modal-inner {
+  background: #1a1a26;
+  color: var(--text);
+}
+body.theme-night .feedback-modal textarea,
+body.theme-night #feedback-text {
+  background: #2a2a3a;
+  color: var(--text);
+  border-color: var(--border);
+}
+body.theme-night .feedback-cancel-btn {
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+/* Pills / vibe items / kindred breakdown — most of these already
+   reference --editorial-bg + --border + --text so they switch
+   automatically. A few hardcoded values need an explicit override. */
+body.theme-night .vibe-item.is-true .vibe-item-label { color: var(--text); }
+body.theme-night .vibe-community-tag {
+  background: var(--editorial-bg);
+  color: var(--text);
+  border-color: var(--border);
+}
+body.theme-night .pill {
+  background: var(--editorial-bg);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* Header buttons — light borders so they read against the dark header. */
+body.theme-night #replay-narrative,
+body.theme-night #about-btn,
+body.theme-night #feedback-btn {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.75);
+}
+body.theme-night #replay-narrative:hover,
+body.theme-night #about-btn:hover,
+body.theme-night #feedback-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Map's "faded overlay" — when a place is selected the layer fades to
+   30% white over the basemap. In night mode that lightens the dark
+   map, which is the desired effect (selection still visually pops),
+   so we leave the layer's color alone. No CSS change needed. */

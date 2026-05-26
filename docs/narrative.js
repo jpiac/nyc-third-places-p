@@ -104,6 +104,7 @@
   // Beat 5 Henrietta kindred-card-show timer — drives the same 300ms
   // delay-after-slide-up pattern Tropicana uses in Beat 7.
   let henriettaKindredCardTimer = null;
+  let lgbtqArcTimer = null;
 
   // rAF handles for the narrative arc layers. drawNarrativeArcs uses
   // 'narrative-arcs-glow' / 'narrative-arcs'; the second-tier function
@@ -150,6 +151,11 @@
   // Tropicana highlight rAF — Beat 7 (n===6) star at the Tropicana
   // location, cleared on Beat 8 entry and in exitNarrative.
   let tropicanaHighlightAnimFrame = null;
+  // Camera-path rAF — drives animateCameraPath through a list of
+  // keyframes per beat (Beat 4 uses this for the multi-waypoint
+  // approach into Henrietta). Cleared in clearAllNarrativeBeatTimers
+  // and exitNarrative so a fresh beat doesn't fight a stale rAF.
+  let cameraPathAnimFrame = null;
 
   // Exposed for narrative beats so Beat 5 can reuse the same selection
   // Beat 4 picked, without re-running selectLgbtqPlaces().
@@ -274,7 +280,7 @@
 
     // Base radius scales with zoom — same stops as the expression
     const zoom = map.getZoom();
-    const baseRadius = 2 + Math.max(0, Math.min(1, (zoom - 10) / 5)) * 4; // 2 at z10, 6 at z15
+    const baseRadius = 1 + Math.max(0, Math.min(1, (zoom - 10) / 5)) * 4; // 2 at z10, 6 at z15
 
     let anyActive = false;
     for (let g = 0; g < TOTAL_GROUPS; g++) {
@@ -320,7 +326,7 @@
       try {
         map.setPaintProperty(id, 'circle-opacity-transition', { duration: 0, delay: 0 });
         map.setPaintProperty(id, 'circle-opacity', 0);
-        map.setPaintProperty(id, 'circle-radius', ['interpolate',['linear'],['zoom'],13,2,15,6],);
+        map.setPaintProperty(id, 'circle-radius', ['interpolate',['linear'],['zoom'],13,1,15,6],);
         map.setPaintProperty(id, 'circle-blur', 1.2);
         map.setLayoutProperty(id, 'visibility', 'none');
       } catch (e) {}
@@ -348,7 +354,7 @@
         map.setLayoutProperty(id, 'visibility', 'visible');
         map.setPaintProperty(id, 'circle-opacity-transition', { duration: 0, delay: 0 });
         map.setPaintProperty(id, 'circle-opacity', 0);
-        map.setPaintProperty(id, 'circle-radius', ['interpolate',['linear'],['zoom'],13,2,15,6],);
+        map.setPaintProperty(id, 'circle-radius', ['interpolate',['linear'],['zoom'],13,1,15,6],);
         map.setPaintProperty(id, 'circle-blur', 1.2);
       } catch (e) {}
     }
@@ -1678,7 +1684,7 @@
     renderNarrativeArcs();
   }
 
-  function showNarrativeKindredCard(placeId) {
+  function showNarrativeKindredCard(placeId, titleOverride, withPulse) {
     if (!narrativeKindredCardEl) {
       narrativeKindredCardEl = document.createElement('div');
       narrativeKindredCardEl.id = 'narrative-kindred-card';
@@ -1692,9 +1698,16 @@
       ? place.similarity_ids.slice(0, 8)
       : [];
     const itemsHtml = ids.map(buildKindredItemMarkup).join('');
+    // Title is "Kindred Places" by default; Beat 5 overrides to
+    // "LGBTQ+ Welcoming" since the kindred list there is filtered to
+    // the LGBTQ identity matches, not general similarity. The pulse
+    // glow only fires when withPulse is true (Beat 5) so the visual
+    // accent shifts to the Web active button by Beat 7.
+    const title = titleOverride || 'Kindred Places';
+    const titleClass = 'narrative-kindred-title' + (withPulse ? ' is-pulsing' : '');
     narrativeKindredCardEl.innerHTML =
       '<div class="narrative-kindred-header">' +
-        '<span class="narrative-kindred-title">Kindred Places</span>' +
+        '<span class="' + titleClass + '">' + title + '</span>' +
         '<button class="narrative-web-badge" id="narrative-web-toggle">◎ Web active</button>' +
       '</div>' +
       itemsHtml;
@@ -1746,11 +1759,13 @@
     if (henriettaHighlightTimer) { clearTimeout(henriettaHighlightTimer); henriettaHighlightTimer = null; }
     if (henriettaKindredCardTimer) { clearTimeout(henriettaKindredCardTimer); henriettaKindredCardTimer = null; }
     if (lgbtqDotsTimer) { clearTimeout(lgbtqDotsTimer); lgbtqDotsTimer = null; }
+    if (lgbtqArcTimer) { clearTimeout(lgbtqArcTimer); lgbtqArcTimer = null; }
     if (tropicanaCardTimer) { clearTimeout(tropicanaCardTimer); tropicanaCardTimer = null; }
     if (tropicanaKindredTimer) { clearTimeout(tropicanaKindredTimer); tropicanaKindredTimer = null; }
     if (tropicanaKindredCardTimer) { clearTimeout(tropicanaKindredCardTimer); tropicanaKindredCardTimer = null; }
     if (tropicanaWebBadgeTimer) { clearTimeout(tropicanaWebBadgeTimer); tropicanaWebBadgeTimer = null; }
     if (tropicanaSecondTierTimer) { clearTimeout(tropicanaSecondTierTimer); tropicanaSecondTierTimer = null; }
+    clearCameraPath();
   }
 
   function setupConstellationInteraction(mapInstance) {
@@ -1861,6 +1876,119 @@
     hint.classList.add('is-visible');
   }
 
+  // Cinematic camera path driven by a list of keyframes — each entry is
+  // { t, center, zoom, pitch, bearing } where t ∈ [0,1] is the fraction
+  // of totalMs at which that pose should be reached. Adjacent keyframes
+  // are linearly interpolated and the camera is driven per-frame with
+  // map.jumpTo so we get full control over the in-between poses (Mapbox's
+  // flyTo plots its own ballistic arc and ignores any waypoints).
+  //
+  // A global ease-in-out is applied to the wall-clock fraction before
+  // looking up the segment, so the path ramps up and decelerates at the
+  // ends — closer to Mapbox flyTo's default feel than constant-velocity
+  // traversal. easeInOutQuad fixes 0, 0.5, and 1, so keyframes at those
+  // wall-clock fractions are still hit at those moments; intermediate
+  // keyframes shift slightly in time but their order is preserved.
+  //
+  // Bearings are interpolated as plain numbers — keep keyframe bearings
+  // within ±180° of each other or the rotation will go the long way.
+  function easeInOutQuad(x) {
+    return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+  }
+  // Catmull-Rom cubic-spline interpolation for one scalar across four
+  // control points (p0 — before segment, p1/p2 — segment endpoints,
+  // p3 — after segment), parameter u ∈ [0,1] along the p1→p2 segment.
+  // Passes exactly through p1 at u=0 and p2 at u=1; tangent at each
+  // endpoint is half the chord of its neighbors, so velocity stays
+  // continuous across consecutive segments — the camera no longer
+  // visibly "kicks" at each keyframe the way it does with linear lerp.
+  function catmullRom(p0, p1, p2, p3, u) {
+    const u2 = u * u;
+    const u3 = u2 * u;
+    return 0.5 * (
+      (2 * p1) +
+      (-p0 + p2) * u +
+      (2 * p0 - 5 * p1 + 4 * p2 - p3) * u2 +
+      (-p0 + 3 * p1 - 3 * p2 + p3) * u3
+    );
+  }
+  function animateCameraPath(keyframes, totalMs, onComplete) {
+    clearCameraPath();
+    if (!map || !Array.isArray(keyframes) || keyframes.length < 2) {
+      if (onComplete) onComplete();
+      return;
+    }
+    
+    const startTime = performance.now();
+    const last = keyframes[keyframes.length - 1];
+
+    function frame(now) {
+      const rawT = Math.min(1, (now - startTime) / totalMs);
+
+      if (rawT >= 1) {
+        cameraPathAnimFrame = null;
+        try {
+          map.jumpTo({
+            center: last.center,
+            zoom: last.zoom,
+            pitch: last.pitch,
+            bearing: last.bearing,
+          });
+        } catch (e) {}
+        if (onComplete) onComplete();
+        return;
+      }
+
+      // Ease wall-clock progress into a smoothed path progress: slow
+      // start, peak velocity through the middle, slow end.
+      const t = easeInOutQuad(rawT);
+
+      // Find the segment containing t. Linear scan; with 5 waypoints in
+      // beat4Path this is trivially cheap.
+      let i = 0;
+      for (; i < keyframes.length - 2; i++) {
+        if (keyframes[i + 1].t >= t) break;
+      }
+      const a = keyframes[i];
+      const b = keyframes[i + 1];
+      // Phantom controls for the spline endpoints: at the very first /
+      // last segment we duplicate the segment's own endpoint so the
+      // spline still has the four points it needs without overshooting
+      // off the ends of the path.
+      const aPrev = keyframes[i - 1] || a;
+      const bNext = keyframes[i + 2] || b;
+      const span = b.t - a.t;
+      const segT = span > 0 ? (t - a.t) / span : 0;
+
+      try {
+        // Catmull-Rom interpolation per-property. Pitch is clamped to
+        // Mapbox's allowed range — cubic splines can briefly overshoot
+        // a control point's value, and a pitch above 85 throws.
+        const pitch = catmullRom(aPrev.pitch, a.pitch, b.pitch, bNext.pitch, segT);
+        map.jumpTo({
+          center: [
+            catmullRom(aPrev.center[0], a.center[0], b.center[0], bNext.center[0], segT),
+            catmullRom(aPrev.center[1], a.center[1], b.center[1], bNext.center[1], segT),
+          ],
+          zoom: catmullRom(aPrev.zoom, a.zoom, b.zoom, bNext.zoom, segT),
+          pitch: Math.max(0, Math.min(85, pitch)),
+          bearing: catmullRom(aPrev.bearing, a.bearing, b.bearing, bNext.bearing, segT),
+        });
+      } catch (e) {}
+
+      cameraPathAnimFrame = requestAnimationFrame(frame);
+    }
+
+    cameraPathAnimFrame = requestAnimationFrame(frame);
+  }
+
+  function clearCameraPath() {
+    if (cameraPathAnimFrame !== null) {
+      cancelAnimationFrame(cameraPathAnimFrame);
+      cameraPathAnimFrame = null;
+    }
+  }
+
   function goToStep(n) {
     currentStep = n;
     showStep(n);
@@ -1906,6 +2034,11 @@
       });
       constellationTimers.push(setTimeout(() => revealGroup(0), 500));
       constellationTimers.push(setTimeout(() => revealGroup(1), 1000));
+      // After ~6s the hint groups fade back out (FADE_OUT_MS = 1500ms,
+      // so they're fully gone by ~7.5s). Pushed onto constellationTimers
+      // so advancing to Beat 3 mid-fade cancels it — constellationReveal
+      // will reset every group's opacity anyway.
+      constellationTimers.push(setTimeout(() => fadeOutConstellation(), 4500));
       // Subway lines fade in alongside the constellation hint.
       setTimeout(() => drawSubwayLines(), 400);
     }
@@ -1918,18 +2051,25 @@
     }
 
     else if (n === 4) {
-      // Henrietta Hudson arrival. Constellation stays visible behind. After
-      // 1s the highlight dot starts pulsing on the bar's location; at 2.5s
-      // (while the camera is still settling) the 50-place LGBTQ web fades
-      // in across the city in 5 staggered waves.
+      // Henrietta Hudson arrival. Instead of a single Mapbox flyTo
+      // (which plots its own ballistic arc through the air), drive the
+      // camera through a curated path of waypoints — over Brooklyn, up
+      // to Midtown, swinging west, then settling on Henrietta. Mapbox's
+      // flyTo would fly directly through the air and skip these
+      // waypoints; animateCameraPath drives jumpTo per frame so we get
+      // exactly the path described.
+      //
+      // The +1000ms highlight timer and +2500ms LGBTQ-dots timer below
+      // fire on wall-clock and are independent of camera position, so
+      // they stay unchanged.
       clearAllNarrativeBeatTimers();
-      map.flyTo({
-        center: HENRIETTA_COORDS,
-        zoom: 16,
-        pitch: 45,
-        bearing: 100,
-        duration: 5000,
-      });
+      const beat4Path = [
+        { t: 0.0,  center: [-73.95, 40.7],     zoom: 11.1, pitch: 40, bearing: 0   },
+        { t: 0.33, center: [-73.99498, 40.71287], zoom: 14.3, pitch: 70, bearing: 0  },
+        { t: 0.75,  center: [-74.00608, 40.732055], zoom: 15.4, pitch: 70, bearing: 0 },
+        { t: 1.0,  center: HENRIETTA_COORDS,    zoom: 16, pitch: 76, bearing: 40 },
+      ];
+      animateCameraPath(beat4Path, 10000, () => {});
       henriettaHighlightTimer = setTimeout(() => {
         henriettaHighlightTimer = null;
         startHenriettaHighlight();
@@ -1937,7 +2077,7 @@
         // alongside the pulsing star so the user sees Henrietta's name
         // and soul summary while the dots fade in around it.
         showNarrativePlaceCard(HENRIETTA_ID, HENRIETTA_NAME);
-      }, 1000);
+      }, 6000);
       lgbtqDotsTimer = setTimeout(() => {
         lgbtqDotsTimer = null;
         const places = selectLgbtqPlaces(50);
@@ -1961,85 +2101,89 @@
       if (window.innerWidth > 640) slideUpNarrativePlaceCard();
       henriettaKindredCardTimer = setTimeout(() => {
         henriettaKindredCardTimer = null;
-        showNarrativeKindredCard(HENRIETTA_ID);
+        // Beat 5's kindred list is the LGBTQ identity-matched set, so
+        // override the header label and pulse the title to call out
+        // the new card. Beat 6 reuses showNarrativeKindredCard with
+        // defaults (Kindred Places, no pulse).
+        showNarrativeKindredCard(HENRIETTA_ID, 'LGBTQ+ Welcoming', true);
         attachKindredCardInteraction(HENRIETTA_ID);
       }, 300);
-      drawRainbowArcs(henrietta, places, () => {});
+      lgbtqArcTimer = setTimeout(() => {
+        lgbtqArcTimer = null;
+        drawRainbowArcs(henrietta, places, () => {});
+      }, 1000);
       map.easeTo({
         center: INITIAL_CENTER,
         zoom: 11,
         pitch: INITIAL_PITCH,
-        bearing: 0,
-        duration: 3000,
+        bearing: -80,
+        duration: 5000,
       });
     }
 
     else if (n === 6) {
-      // Transition to Tropicana. Wipe Beat 4/5 LGBTQ layers + any arcs
-      // before flying so the deck canvas is clean for Tropicana's arcs.
-      // (clearAllLgbtqLayers internally calls stopHenriettaHighlight, so
-      // no separate Henrietta-cleanup call is needed.)
+      // Tropicana arrival + first-tier kindred. Wipe Beat 4/5 LGBTQ
+      // layers + any prior arcs before flying so the deck canvas is
+      // clean. (clearAllLgbtqLayers internally calls stopHenriettaHighlight.)
       clearAllLgbtqLayers();
       clearNarrativeArcs();
       hideNarrativeKindredCard();
       hideNarrativePlaceCard();
       clearAllNarrativeBeatTimers();
       map.flyTo({
-        center: TROPICANA_COORDS,
-        zoom: 12.75,
-        pitch: 55,
+        center: [-73.95, 40.76388],
+        zoom: 11.7,
+        pitch: 60,
         bearing: 210,
-        duration: 3000,
+        duration: 4000,
       });
+      // Sequence: at +0.5s the Tropicana card + highlight star surface;
+      // at +1.5s the card slides up and first-tier kindred arcs draw;
+      // at +1.8s the kindred list side card appears beneath the slid-up
+      // card with click handlers wired. Beat 7 then takes over for the
+      // web (second-tier) activation.
       tropicanaCardTimer = setTimeout(() => {
         tropicanaCardTimer = null;
         showNarrativePlaceCard(TROPICANA_ID, TROPICANA_NAME);
-        // Static highlight star at Tropicana — pulses 6..10 until the
-        // next beat clears it just before the kindred arcs draw.
         startTropicanaHighlight();
       }, 500);
-    }
-
-    else if (n === 7) {
-      // Slide the Tropicana card up, draw its kindred, surface the
-      // kindred list card, then a beat later add the "web active" badge
-      // and draw the second-degree arcs.
-      map.flyTo({
-        center: [-73.92325, 40.76388],
-        zoom: 12,
-        pitch: 60,
-        bearing: 210,
-        duration: 5000,
-      });
-      if (window.innerWidth > 640) slideUpNarrativePlaceCard();
-      drawNarrativeArcs(TROPICANA_ID, () => {});
-      if (tropicanaKindredCardTimer) clearTimeout(tropicanaKindredCardTimer);
+      tropicanaKindredTimer = setTimeout(() => {
+        tropicanaKindredTimer = null;
+        if (window.innerWidth > 640) slideUpNarrativePlaceCard();
+        drawNarrativeArcs(TROPICANA_ID, () => {});
+      }, 1500);
       tropicanaKindredCardTimer = setTimeout(() => {
         tropicanaKindredCardTimer = null;
         showNarrativeKindredCard(TROPICANA_ID);
         attachKindredCardInteraction(TROPICANA_ID);
-      }, 300);
-      if (tropicanaWebBadgeTimer) clearTimeout(tropicanaWebBadgeTimer);
-      tropicanaWebBadgeTimer = setTimeout(() => {
-        tropicanaWebBadgeTimer = null;
-        showNarrativeWebBadge();
       }, 1800);
-      if (tropicanaSecondTierTimer) clearTimeout(tropicanaSecondTierTimer);
-      tropicanaSecondTierTimer = setTimeout(() => {
-        tropicanaSecondTierTimer = null;
-        // The badge becomes clickable at +1800ms; if the user clicked
-        // during the 200ms gap before this auto-draw fires, they've
-        // already kicked off the same animation. Skip rather than
-        // re-trigger and cause a double-draw flash.
-        if (narrativeSecondLineData.length === 0 && narrativeArcsSecondAnimFrame === null) {
-          drawNarrativeSecondTierArcs(TROPICANA_ID);
-          const toggle = document.getElementById('narrative-web-toggle');
-          if (toggle) {
-            toggle.classList.add('is-active');
-            toggle.textContent = '◎ Web active';
-          }
-        }
-      }, 2000);
+    }
+
+    else if (n === 7) {
+      map.flyTo({
+        center: [-73.92, 40.76388],
+        zoom: 11.8,
+        pitch: 65,
+        bearing: 180,
+        duration: 4000,
+      });
+      // Web activation. First-tier arcs + kindred card already landed
+      // in Beat 6 — this beat just surfaces the "Web active" badge,
+      // draws the second-tier arcs, and toggles the button's is-active
+      // class so the badge text picks up the pulsing-glow animation.
+      // No camera move; we hold on the same Tropicana kindred view.
+      showNarrativeWebBadge();
+      // Guard: if the user already toggled the web via the (now-visible)
+      // badge button during the brief window between Beat 6 and Beat 7,
+      // don't re-draw the same arcs on top of themselves.
+      if (narrativeSecondLineData.length === 0 && narrativeArcsSecondAnimFrame === null) {
+        drawNarrativeSecondTierArcs(TROPICANA_ID);
+      }
+      const toggle = document.getElementById('narrative-web-toggle');
+      if (toggle) {
+        toggle.classList.add('is-active');
+        toggle.textContent = '◎ Web active';
+      }
     }
 
     else if (n === 8) {
@@ -2073,6 +2217,10 @@
     // Cancel every narrative beat timer + the narrative arc rAFs + both
     // right-side cards, before the rest of the cleanup runs.
     clearAllNarrativeBeatTimers();
+    // Belt-and-suspenders: clearAllNarrativeBeatTimers also calls
+    // clearCameraPath, but make the intent explicit here so a future
+    // refactor of the beat-timer helper can't strand an in-flight rAF.
+    clearCameraPath();
     clearSubwayLines();
     clearAllLgbtqLayers();
     clearNarrativeArcs();

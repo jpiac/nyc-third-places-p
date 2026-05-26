@@ -2009,6 +2009,40 @@ function initLegend() {
   });
 }
 
+// Day/night theme — flips both the Mapbox basemap lightPreset (so
+// roads + buildings + water shift to their night palette) and the
+// body class so the CSS dark-mode overrides kick in for the chrome.
+// The narrative path also pokes lightPreset directly via narrative.js's
+// setLightPreset; we leave that path alone since the narrative needs
+// to force-night regardless of the user's pref. Once the narrative
+// exits, this toggle takes over.
+const THEME_STORAGE_KEY = 'map_theme';
+function applyMapTheme(theme) {
+  const isNight = theme === 'night';
+  document.body.classList.toggle('theme-night', isNight);
+  if (map) {
+    try { map.setConfigProperty('basemap', 'lightPreset', isNight ? 'night' : 'day'); } catch (e) {}
+  }
+  const icon = document.getElementById('theme-toggle-icon');
+  // ☾ = invitation to night (currently day); ☼ = invitation to day (currently night).
+  if (icon) icon.textContent = isNight ? '☼' : '☾';
+}
+function initTheme() {
+  const toggle = document.getElementById('theme-toggle');
+  if (!toggle) return;
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_STORAGE_KEY); } catch (e) {}
+  // Default to day. Narrative will still force night while it's
+  // playing; once the user exits, the persisted pref (or default) wins.
+  const initial = saved === 'night' ? 'night' : 'day';
+  applyMapTheme(initial);
+  toggle.addEventListener('click', () => {
+    const next = document.body.classList.contains('theme-night') ? 'day' : 'night';
+    try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch (e) {}
+    applyMapTheme(next);
+  });
+}
+
 async function initMap() {
   const bounds = [
   [-74.259, 40.477], // Southwest coordinates (e.g., New York area)
@@ -2350,6 +2384,7 @@ async function initMap() {
   // built immediately. The dropdown wiring + event listeners attach here.
   initSearch();
   initLegend();
+  initTheme();
 
   function onCircleMouseEnter(e) {
   if (!e.features.length) return;

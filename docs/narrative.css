@@ -75,7 +75,7 @@ body.narrative-active #narrative-overlay,
   font-size: 32px;
   line-height: 1.35;
   color: #ffffff;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.9), 0 2px 12px rgba(0,0,0,0.85), 0 4px 18px rgba(0,0,0,0.8);
+  text-shadow: 0 0 4px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,1), 0 0 12px rgba(0,0,0,1);
   opacity: 0;
   transform: translateY(12px);
   transition: opacity 0.8s ease, transform 0.8s ease;
@@ -92,7 +92,7 @@ body.narrative-active #narrative-overlay,
 
 .narrative-text p {
   margin: 0 0 18px;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.9), 0 2px 12px rgba(0,0,0,0.85), 0 4px 18px rgba(0,0,0,0.8);
+  text-shadow: 0 0 4px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,1), 0 0 12px rgba(0,0,0,1);
 }
 .narrative-text p:last-child {
   margin-bottom: 0;
@@ -104,7 +104,7 @@ body.narrative-active #narrative-overlay,
   line-height: 1.55;
   color: rgba(255, 255, 255, 0.85);
   font-weight: 400;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.9), 0 2px 12px rgba(0,0,0,0.85), 0 4px 18px rgba(0,0,0,0.8);
+  text-shadow: 0 0 4px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,1), 0 0 12px rgba(0,0,0,1);
 }
 
 .narrative-text blockquote {
@@ -116,7 +116,7 @@ body.narrative-active #narrative-overlay,
   margin: 0 0 8px;
   padding: 0;
   quotes: none;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.9), 0 2px 12px rgba(0,0,0,0.85), 0 4px 18px rgba(0,0,0,0.8);
+  text-shadow: 0 0 4px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,1), 0 0 12px rgba(0,0,0,1);
 }
 .narrative-text blockquote::before,
 .narrative-text blockquote::after {
@@ -131,8 +131,8 @@ body.narrative-active #narrative-overlay,
   font-style: normal;
   font-size: 14px;
   letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.6);
-  text-shadow: 0 1px 6px rgba(0,0,0,0.9), 0 2px 12px rgba(0,0,0,0.85), 0 4px 18px rgba(0,0,0,0.8);
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 0 4px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,1), 0 0 12px rgba(0,0,0,1);
 }
 
 .narrative-count {
@@ -143,7 +143,7 @@ body.narrative-active #narrative-overlay,
   letter-spacing: -0.01em;
   color: #ffffff;
   margin-bottom: 18px !important;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.9), 0 2px 12px rgba(0,0,0,0.8);
+  text-shadow: 0 0 4px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,1), 0 0 12px rgba(0,0,0,1);
 }
 
 #narrative-cta {
@@ -348,6 +348,37 @@ body.narrative-active .legend {
   font-weight: 600;
   color: rgba(255, 255, 255, 0.5);
 }
+/* Pulses + glows only when the .is-pulsing class is on the title —
+   Beat 5 sets it on the "LGBTQ+ Welcoming" header to call out the new
+   side panel. Beats 6/7 reuse the kindred card with the default
+   "Kindred Places" title and no pulse, so attention can shift to the
+   Web active button. Same easing and dual-shadow technique as
+   .narrative-web-badge.is-active but in a softer warm cream so the
+   two pulses don't compete when they're both visible. */
+.narrative-kindred-title.is-pulsing {
+  animation: kindred-title-pulse 2.4s ease-in-out infinite;
+}
+@keyframes kindred-title-pulse {
+  0%, 100% {
+    color: rgba(255, 255, 255, 0.55);
+    text-shadow: 0 0 4px rgba(255, 240, 180, 0.2);
+  }
+  50% {
+    color: rgba(255, 247, 200, 0.95);
+    text-shadow:
+      0 0 10px rgba(255, 240, 180, 0.7),
+      0 0 18px rgba(255, 240, 180, 0.4);
+  }
+}
+/* Respect reduced-motion preference — drop the pulse but keep a
+   slightly brighter mid-state so the title still reads as "alive"
+   while it has .is-pulsing. */
+@media (prefers-reduced-motion: reduce) {
+  .narrative-kindred-title.is-pulsing {
+    animation: none;
+    color: rgba(255, 247, 200, 0.9);
+  }
+}
 .narrative-web-badge {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 11px;
@@ -370,6 +401,26 @@ button.narrative-web-badge {
 }
 button.narrative-web-badge:hover {
   opacity: 0.8;
+}
+/* While the web is active, the "◎ Web active" text pulses with a warm
+   gold glow so it reads as an alive/live state — distinguishes it from
+   "◎ Web off" which is a plain static color. The animation runs as long
+   as .is-active is on the button; toggling off (in the click handler)
+   removes the class and stops the pulse. */
+.narrative-web-badge.is-active {
+  animation: web-active-pulse 1.6s ease-in-out infinite;
+}
+@keyframes web-active-pulse {
+  0%, 100% {
+    text-shadow: 0 0 4px rgba(255, 224, 102, 0.5);
+    color: #ffe066;
+  }
+  50% {
+    text-shadow:
+      0 0 14px rgba(255, 224, 102, 0.95),
+      0 0 22px rgba(255, 224, 102, 0.55);
+    color: #fff7c0;
+  }
 }
 .narrative-kindred-item {
   display: flex;
