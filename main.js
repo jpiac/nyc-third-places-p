@@ -2193,7 +2193,13 @@ async function initMap() {
        'place_of_worship',
        'dance', 'amusement_arcade', 'bowling_alley',
        'marketplace', 'memorial', 'monument', 'artwork',
-       'attraction', 'viewpoint'], true, false],
+       'attraction', 'viewpoint',
+       'florist', 'pastry', 'public_bookcase', 'craft', 'art', 'chocolate',
+       'musical_instrument', 'antiques', 'food_court', 'tea', 'fountain',
+       'ice_cream', 'sauna', 'pitch', 'ice_rink', 'internet_cafe',
+       'escape_game', 'public_bath', 'nature_reserve', 'dog_park',
+       'miniature_golf', 'shelter', 'aquarium', 'outdoor_seating',
+       'square', 'zoo', 'concert_hall', 'bench',], true, false],
     paint: {
       'circle-color': buildColorExpression(),
       'circle-radius': [
@@ -2258,7 +2264,13 @@ async function initMap() {
        'place_of_worship',
        'dance', 'amusement_arcade', 'bowling_alley',
        'marketplace', 'memorial', 'monument', 'artwork',
-       'attraction', 'viewpoint'], true, false],
+       'attraction', 'viewpoint',
+       'florist', 'pastry', 'public_bookcase', 'craft', 'art', 'chocolate',
+       'musical_instrument', 'antiques', 'food_court', 'tea', 'fountain',
+       'ice_cream', 'sauna', 'pitch', 'ice_rink', 'internet_cafe',
+       'escape_game', 'public_bath', 'nature_reserve', 'dog_park',
+       'miniature_golf', 'shelter', 'aquarium', 'outdoor_seating',
+       'square', 'zoo', 'concert_hall', 'bench',], true, false],
     paint: {
       'circle-color': buildColorExpression(),
       'circle-radius': [
@@ -2306,7 +2318,13 @@ async function initMap() {
        'place_of_worship',
        'dance', 'amusement_arcade', 'bowling_alley',
        'marketplace', 'memorial', 'monument', 'artwork',
-       'attraction', 'viewpoint'], true, false],
+       'attraction', 'viewpoint',
+       'florist', 'pastry', 'public_bookcase', 'craft', 'art', 'chocolate',
+       'musical_instrument', 'antiques', 'food_court', 'tea', 'fountain',
+       'ice_cream', 'sauna', 'pitch', 'ice_rink', 'internet_cafe',
+       'escape_game', 'public_bath', 'nature_reserve', 'dog_park',
+       'miniature_golf', 'shelter', 'aquarium', 'outdoor_seating',
+       'square', 'zoo', 'concert_hall', 'bench',], true, false],
     paint: {
       'circle-color': buildColorExpression(),
       'circle-radius': [
@@ -2353,7 +2371,13 @@ async function initMap() {
        'place_of_worship',
        'dance', 'amusement_arcade', 'bowling_alley',
        'marketplace', 'memorial', 'monument', 'artwork',
-       'attraction', 'viewpoint'], true, false],
+       'attraction', 'viewpoint',
+       'florist', 'pastry', 'public_bookcase', 'craft', 'art', 'chocolate',
+       'musical_instrument', 'antiques', 'food_court', 'tea', 'fountain',
+       'ice_cream', 'sauna', 'pitch', 'ice_rink', 'internet_cafe',
+       'escape_game', 'public_bath', 'nature_reserve', 'dog_park',
+       'miniature_golf', 'shelter', 'aquarium', 'outdoor_seating',
+       'square', 'zoo', 'concert_hall', 'bench',], true, false],
     paint: {
       'circle-color': buildColorExpression(),
       'circle-radius': [
