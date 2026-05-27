@@ -207,6 +207,16 @@ const OSM_TYPE_LABELS = {
   aquarium: 'Aquarium',
 };
 
+const NON_BUILDING_TYPES = new Set([
+  'park', 'garden', 'playground', 'dog_park', 'nature_reserve',
+  'pitch', 'outdoor_seating', 'square',
+  'memorial', 'monument', 'artwork', 'fountain', 'bench',
+  'viewpoint', 'shelter', 'attraction', 'zoo', 'aquarium',
+  'antiques', 'art', 'chocolate', 'craft', 'florist',
+  'ice_cream', 'musical_instrument', 'pastry', 'tea',
+  'public_bookcase',
+]);
+
 function formatOsmType(type) {
   return OSM_TYPE_LABELS[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
@@ -229,6 +239,7 @@ let secondTierLineData = [];
 let showSecondTier = false;
 const CONSTELLATION_GROUP_COUNT = 20;
 let geojsonData = null;
+let selectedBuilding = null;
 
 const CONSTELLATION_TYPES = [
   'cafe', 'bar', 'pub', 'library', 'community_centre',
@@ -1453,6 +1464,101 @@ function unfadeMain() {
   unfadeMainAnimFrame = requestAnimationFrame(step);
 }
 
+async function getBuildingCoordinate(place) {
+  const tags = place.osm_tags || {};
+  const num = tags['addr:housenumber'];
+  const street = tags['addr:street'];
+  const city = tags['addr:city'] || 'New York';
+  const state = tags['addr:state'] || 'NY';
+
+  if (num && street) {
+    const query = encodeURIComponent(`${num} ${street}, ${city}, ${state}`);
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json` +
+      `?access_token=${MAPBOX_TOKEN}&limit=1&types=address` +
+      `&proximity=${place.coordinates[0]},${place.coordinates[1]}`;
+    try {
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.features && json.features.length > 0) {
+        return json.features[0].center;
+      }
+    } catch (e) {}
+  }
+  return place.coordinates;
+}
+
+let buildingHighlightTimer = null;
+
+async function highlightBuildingAtPlace(place) {
+  clearBuildingHighlight();
+  if (!map || !place || !Array.isArray(place.coordinates)) return;
+  if (NON_BUILDING_TYPES.has(place.osm_type)) return;
+
+  // Cancel any pending highlight from a prior rapid selection
+  if (buildingHighlightTimer) {
+    clearTimeout(buildingHighlightTimer);
+    buildingHighlightTimer = null;
+  }
+
+  const color = COLOR_BY_TYPE[place.osm_type] || COLOR_DEFAULT;
+  try { map.setConfigProperty('basemap', 'colorBuildingSelect', color); } catch (e) {}
+
+  const coord = await getBuildingCoordinate(place);
+
+  const doQuery = () => {
+    if (!selectedPlaceId) return;
+
+    const savedPitch = map.getPitch();
+    const savedBearing = map.getBearing();
+    const savedCenter = map.getCenter();
+    const savedZoom = map.getZoom();
+
+    if (savedPitch > 5) {
+      map.jumpTo({ center: coord, zoom: Math.max(savedZoom, 16), pitch: 0, bearing: 0 });
+    }
+
+    const point = map.project(coord);
+    const bbox = [
+      [point.x - 8, point.y - 8],
+      [point.x + 8, point.y + 8],
+    ];
+
+    try {
+      const features = map.queryRenderedFeatures(bbox, {
+        target: { featuresetId: 'buildings', importId: 'basemap' },
+      });
+      if (features.length > 0) {
+        selectedBuilding = features[0];
+        map.setFeatureState(selectedBuilding, { select: true });
+      }
+    } catch (e) {}
+
+    if (savedPitch > 5) {
+      map.jumpTo({
+        center: savedCenter,
+        zoom: savedZoom,
+        pitch: savedPitch,
+        bearing: savedBearing,
+      });
+    }
+  };
+
+  if (!map.isMoving()) {
+    doQuery();
+  } else {
+    map.once('idle', doQuery);
+  }
+}
+
+function clearBuildingHighlight() {
+  if (selectedBuilding && map) {
+    try {
+      map.setFeatureState(selectedBuilding, { select: false });
+    } catch (e) {}
+    selectedBuilding = null;
+  }
+}
+
 function setSelected(placeId) {
   if (selectedId !== null) {
     map.setFeatureState(
@@ -1476,6 +1582,10 @@ function setSelected(placeId) {
   );
   selectedId = placeId;
   selectedPlaceId = placeId;
+  // Highlight the building at this place
+  if (place && Array.isArray(place.coordinates)) {
+    highlightBuildingAtPlace(place);
+  }
 
   if (!activeFilterTag && place && Array.isArray(place.similarity_ids)) {
     for (const pid of place.similarity_ids.slice(0, TOP_KINDRED)) {
@@ -1619,9 +1729,11 @@ function closeSidebar() {
       { connected: false }
     );
   }
+
   connectedIds.clear();
   clearKindredLines();
   clearSecondTierLines();
+  clearBuildingHighlight();
   const tierBtn = document.getElementById('second-tier-toggle');
   if (tierBtn) tierBtn.style.display = 'none';
   if (map) {
@@ -2303,22 +2415,44 @@ async function initMap() {
   }
 
   function onCircleClick(e) {
-    if (!e.features.length) return;
-    if (document.getElementById('narrative-overlay') &&
-        document.getElementById('narrative-overlay').classList.contains('is-interactive')) return;
-    const priorityHits = map.queryRenderedFeatures(e.point, {
-      layers: [
-        'places-circles-selected-overlay',
-        'places-circles-connected-overlay',
-        'places-circles-second-tier-overlay',
-        'places-circles-main',
-      ]
+  if (!e.features.length) return;
+  if (document.getElementById('narrative-overlay') &&
+      document.getElementById('narrative-overlay').classList.contains('is-interactive')) return;
+
+  // Query a wider bbox and filter to features actually in connectedIds
+  // or secondConnectedIds — this ensures kindred dots win over nearby
+  // main-layer dots without accidentally picking up an unrelated dot
+  // that happens to be within the bbox.
+  const pad = 8;
+  const bbox = [
+    [e.point.x - pad, e.point.y - pad],
+    [e.point.x + pad, e.point.y + pad],
+  ];
+
+  if (connectedIds.size > 0 || secondConnectedIds.size > 0) {
+    const overlayHits = map.queryRenderedFeatures(bbox, {
+      layers: ['places-circles-connected-overlay', 'places-circles-second-tier-overlay'],
     });
-    const hit = priorityHits.length > 0 ? priorityHits[0] : e.features[0];
-    const pid = hit.properties.id;
-    if (!pid) return;
-    openSidebar(pid);
+    // Only accept hits whose id is actually in our connected sets
+    const connectedHit = overlayHits.find(f => {
+      const pid = f.properties.id;
+      return connectedIds.has(pid) || secondConnectedIds.has(pid);
+    });
+    if (connectedHit) {
+      const pid = connectedHit.properties.id;
+      if (pid) { openSidebar(pid); return; }
+    }
   }
+
+  // Fall back to normal priority query
+  const priorityHits = map.queryRenderedFeatures(e.point, {
+    layers: ['places-circles-selected-overlay', 'places-circles-main'],
+  });
+  const hit = priorityHits.length > 0 ? priorityHits[0] : e.features[0];
+  const pid = hit.properties.id;
+  if (!pid) return;
+  openSidebar(pid);
+}
 
   ['places-circles-main',
     'places-circles-connected-overlay',

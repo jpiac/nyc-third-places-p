@@ -1,10 +1,11 @@
 :root {
-  --bg: #faf9f7;
+  --bg: #f6fbff;
+  --title-text: #151f5e;
   --text: #2b2b2b;
-  --text-muted: #6b6b6b;
-  --accent: #E07A5F;
-  --border: #e7e2d6;
-  --editorial-bg: #f5f1ea;
+  --text-muted: #5068a0;
+  --accent: #2d5fa6;
+  --border: #bdd4f0;
+  --editorial-bg: #e5efff;
   --font-display: 'Impact', Georgia, serif;
   --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --transition: 250ms ease;
@@ -44,7 +45,7 @@ html, body {
   left: 0;
   right: 0;
   padding: 14px 22px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--bg);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
@@ -59,6 +60,7 @@ html, body {
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1;
+  color: var(--title-text);
 }
 .app-subtitle {
   font-size: 13px;
@@ -323,7 +325,7 @@ html, body {
   bottom: 40px;
   left: 16px;
   z-index: 5;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--bg);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   padding: 12px 14px;
@@ -1233,7 +1235,7 @@ body.theme-night .hamburger-menu button:hover {
 .search-input-row:focus-within {
   background: #ffffff;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(224, 122, 95, 0.12);
+  box-shadow: 0 0 0 3px rgba(45, 95, 166, 0.15);;
 }
 .search-icon {
   font-size: 13px;
@@ -1370,8 +1372,10 @@ body.theme-night .hamburger-menu button:hover {
    ============================================================ */
 body.theme-night {
   --bg: #14141f;
+  --title-text: #ececf2;
   --text: #ececf2;
   --text-muted: #a0a0b0;
+  --accent: #4072b8;
   --border: #353548;
   --editorial-bg: #20202e;
   --shadow-sidebar: -4px 0 28px rgba(0, 0, 0, 0.5);
