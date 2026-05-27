@@ -1801,6 +1801,14 @@ function initSearch() {
     runSearch();
   });
 
+  const searchIcon = document.querySelector('.search-icon');
+  if (searchIcon) {
+    searchIcon.style.cursor = 'pointer';
+    searchIcon.addEventListener('click', () => {
+      input.focus();
+    });
+  }
+
   document.getElementById('search-type-filter').addEventListener('change', (e) => {
     searchTypeFilter = e.target.value;
     runSearch();

@@ -1223,7 +1223,7 @@ body.theme-night .hamburger-menu button:hover {
 .search-input-row {
   display: flex;
   align-items: center;
-  background: var(--editorial-bg);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0 10px;
@@ -1231,6 +1231,10 @@ body.theme-night .hamburger-menu button:hover {
   gap: 6px;
   transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
   width: 320px;
+}
+.search-input-row:hover:not(:focus-within) {
+  background: #dce8ff;
+  border-color: #a8c4e8;
 }
 .search-input-row:focus-within {
   background: #ffffff;
@@ -1431,6 +1435,10 @@ body.theme-night .about-sources p {
 body.theme-night .search-input-row {
   background: var(--editorial-bg);
   border-color: var(--border);
+}
+body.theme-night .search-input-row:hover:not(:focus-within) {
+  background: #2a2a3e;
+  border-color: rgba(255, 255, 255, 0.2);
 }
 body.theme-night .search-input-row:focus-within {
   background: #2c2c40;
