@@ -1836,6 +1836,7 @@
         bearing: 0,
         duration: 3000,
       });
+      setTimeout(() => showNarrativeHint(), 2000);
     }
 
     else if (n === 2) {
@@ -1960,6 +1961,7 @@
     }
 
     else if (n === 8) {
+      hideNarrativeHint();
       clearNarrativeArcs();
       clearTropicanaHighlight();
       hideNarrativeKindredCard();
@@ -1990,6 +1992,7 @@
     clearSubwayLines();
     clearAllLgbtqLayers();
     clearNarrativeArcs();
+    hideNarrativeHint();
     hideNarrativePlaceCard();
     hideNarrativeKindredCard();
     if (typeof window.toggleSecondTier === 'function' && window.showSecondTier) {
@@ -2043,6 +2046,34 @@
   function isNarrativeActive() {
     return document.body.classList.contains('narrative-active');
   }
+
+  function injectNarrativeHint() {
+  let hint = document.getElementById('narrative-hint');
+  if (hint) return hint;
+  hint = document.createElement('div');
+  hint.id = 'narrative-hint';
+  // Different text for touch vs mouse devices
+  const isTouch = window.matchMedia('(hover: none)').matches;
+  hint.textContent = isTouch ? 'Tap to continue' : 'Click to continue';
+  document.body.appendChild(hint);
+  return hint;
+}
+
+function showNarrativeHint() {
+  const hint = document.getElementById('narrative-hint');
+  if (hint) {
+    hint.classList.remove('is-hidden');
+    hint.classList.add('is-visible');
+  }
+}
+
+function hideNarrativeHint() {
+  const hint = document.getElementById('narrative-hint');
+  if (hint) {
+    hint.classList.remove('is-visible');
+    hint.classList.add('is-hidden');
+  }
+}
 
   function attachListenersOnce() {
     if (listenersAttached) return;
@@ -2143,7 +2174,9 @@
     });
 
     injectPlaceCard();
+    injectNarrativeHint();
     attachListenersOnce();
+    
 
     goToStep(1);
   }

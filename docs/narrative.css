@@ -146,6 +146,43 @@ body.narrative-active #narrative-overlay,
   text-shadow: 0 0 4px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,1), 0 0 12px rgba(0,0,0,1);
 }
 
+/* Click/tap to advance hint — appears after a delay on Beat 1,
+   fades out when the CTA arrives on Beat 8. */
+#narrative-hint {
+  position: fixed;
+  bottom: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 18px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 2s ease;
+  z-index: 20;
+  white-space: nowrap;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+}
+
+#narrative-hint.is-visible {
+  opacity: 1;
+}
+
+#narrative-hint.is-hidden {
+  opacity: 0;
+}
+
+/* Gentle pulse to draw attention without being distracting */
+@keyframes hint-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+#narrative-hint.is-visible {
+  animation: hint-pulse 2.5s ease-in-out infinite;
+}
+
 #narrative-cta {
   pointer-events: auto;
   display: inline-block;
