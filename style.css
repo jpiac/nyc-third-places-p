@@ -484,45 +484,6 @@ html, body {
   max-height: 0;
   opacity: 0;
 }
-@media (max-width: 640px) {
-  .app-header {
-    padding: 10px 16px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .app-title {
-    font-size: 15px;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .app-subtitle {
-    display: none;
-  }
-
-  .search-container {
-    flex: 1;
-    min-width: 0;
-    margin-left: 0;
-    margin-right: 0;
-  }
-
-  .search-input-row {
-    width: 100%;
-    max-width: 180px;
-  }
-
-  .hamburger-btn {
-    flex-shrink: 0;
-  }
-
-  .legend-toggle {
-    display: flex;
-  }
-}
 
 /* Reposition Mapbox controls */
 .mapboxgl-ctrl-bottom-right {
@@ -915,17 +876,41 @@ body.narrative-active .mapboxgl-ctrl-group {
 @media (max-width: 640px) {
   .app-header {
     padding: 10px 16px;
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
     gap: 8px;
   }
+
   .app-title {
     font-size: 15px;
     white-space: nowrap;
-    flex-shrink: 0;
   }
-  .app-subtitle { display: none; }
+
+  .app-subtitle {
+    display: none;
+  }
+
+  .search-container {
+    margin-left: 0;
+    margin-right: 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  .search-input-row {
+    width: 100%;
+    max-width: 180px;
+  }
+
+  .hamburger-btn {
+    justify-self: end;
+  }
+  
+  .legend-toggle {
+    display: flex;
+  }
+
   .sidebar {
     top: auto;
     left: 0;
