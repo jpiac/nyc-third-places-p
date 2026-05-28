@@ -2133,7 +2133,7 @@ function hideNarrativeConnectionCard() {
         center: [-73.932, 40.747],
         zoom: 12,
         pitch: 50,
-        bearing:-55,
+        bearing:-45,
         duration: 4000,
       });
 
