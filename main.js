@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 const COLOR_BY_TYPE = {
-  cafe: '#115cff',
+  cafe: '#00a2ff',
   bar: '#E07A5F',
   pub: '#E07A5F',
   library: '#81B29A',
@@ -115,7 +115,7 @@ const COLOR_BY_TYPE = {
   sports_centre: '#60A5FA',
   swimming_pool: '#60A5FA',
 };
-const COLOR_DEFAULT = '#888888';
+const COLOR_DEFAULT = '#2d7ac8';
 
 const ATMOSPHERE_LABELS = {
   outdoor_seating: 'outdoor seating',
