@@ -2,6 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="description" content="An interactive map of 11,500+ community gathering spaces across New York City — cafés, bars, libraries, parks, community centers and more, connected by social character.">
+  <meta property="og:title" content="The Third Place — New York City's Community Soul">
+  <meta property="og:description" content="Explore 11,500+ NYC gathering spaces and discover kindred connections between places that share social character, atmosphere, and community identity.">
+  <meta property="og:image" content="https://jpiac.github.io/nyc-third-places-p/preview.png">
+  <meta property="og:url" content="https://jpiac.github.io/nyc-third-places-p/">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="The Third Place — New York City's Community Soul">
+  <meta name="twitter:description" content="Explore NYC's community gathering spaces and the invisible threads that connect them.">
+  <meta name="twitter:image" content="https://jpiac.github.io/nyc-third-places-p/preview.png">
   <title>Third Places — New York City</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,9 +35,27 @@
       } catch (e) { /* private mode etc — fall through to default chrome */ }
     })();
   </script>
-
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "The Third Place",
+  "description": "An interactive map of New York City's community gathering spaces — cafés, bars, libraries, parks, and more — connected by social character and shared identity.",
+  "url": "https://jpiac.github.io/nyc-third-places-p/",
+  "applicationCategory": "Map",
+  "operatingSystem": "Web",
+  "creator": {
+    "@type": "Person",
+    "name": "JP Iacovelli"
+  },
+  "about": {
+    "@type": "Place",
+    "name": "New York City"
+  },
+  "keywords": "NYC third places, community spaces, gathering places, New York City map, social infrastructure, cafes bars libraries parks NYC"
+}
+</script>
   <div id="map"></div>
-
   <header class="app-header">
     <div class="app-title">Third Places</div>
     <div class="app-subtitle">Findy your place</div>
