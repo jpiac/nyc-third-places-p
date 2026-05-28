@@ -181,13 +181,12 @@ html, body {
 
 .place-editorial {
   font-size: 14px;
-  color: #5a5a5a;
+  color: var(--text);
   font-style: italic;
   margin: 0 0 22px;
   padding: 12px 14px;
   background: var(--editorial-bg);
   border-radius: 6px;
-  border-left: 3px solid var(--accent);
 }
 
 /* Atmosphere pills */

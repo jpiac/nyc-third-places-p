@@ -2004,29 +2004,34 @@ function hideNarrativeConnectionCard() {
     else if (n === 3) {
       clearSubwayLines();
       constellationReveal();
-      setTimeout(() => showNarrativeHint(), 3000);
+      map.easeTo({
+        center: [-73.988045, 40.696544],
+        zoom: 15.4,
+        pitch: 65,
+        bearing: -20,
+        duration: 8000
+      });
+      setTimeout(() => showNarrativeHint(), 8000);
     }
 
     else if (n === 4) {
       clearAllNarrativeBeatTimers();
       const beat4Path = [
-        { t: 0.0,  center: [-73.95, 40.7],             zoom: 11.1, pitch: 40, bearing: 0  },
-        { t: 0.33, center: [-73.99498, 40.71287],       zoom: 15,   pitch: 70, bearing: 0  },
-        { t: 0.75, center: [-74.00608, 40.732055],      zoom: 15.7, pitch: 70, bearing: 0  },
+        { t: 0, center: [-73.988045, 40.696544],       zoom: 15.4,   pitch: 65, bearing: -20  },
+        { t: 0.65, center: [-74.00608, 40.732055],      zoom: 15.7, pitch: 70, bearing: 0  },
         { t: 1.0,  center: HENRIETTA_COORDS,            zoom: 16,   pitch: 76, bearing: 40 },
       ];
-      animateCameraPath(beat4Path, 15000, () => {});
+      animateCameraPath(beat4Path, 8000, () => {});
       henriettaHighlightTimer = setTimeout(() => {
         henriettaHighlightTimer = null;
         startHenriettaHighlight();
-        if (window.innerWidth > 640) showNarrativePlaceCard(HENRIETTA_ID, HENRIETTA_NAME);
-      }, 10000);
+      }, 2500);
       lgbtqDotsTimer = setTimeout(() => {
         lgbtqDotsTimer = null;
         const places = selectLgbtqPlaces(50);
         drawLgbtqDots(places, () => {});
       }, 2500);
-      setTimeout(() => showNarrativeHint(), 17000);
+      setTimeout(() => showNarrativeHint(), 8000);
     }
 
     else if (n === 5) {
@@ -2037,18 +2042,24 @@ function hideNarrativeConnectionCard() {
       const henrietta =
         (fb && fb.get(HENRIETTA_ID)) ||
         { coordinates: HENRIETTA_COORDS, id: HENRIETTA_ID, name: HENRIETTA_NAME };
-      if (window.innerWidth > 640) slideUpNarrativePlaceCard();
+
+      // Show place card first, then slide it up when kindred card appears
+      if (window.innerWidth > 640) showNarrativePlaceCard(HENRIETTA_ID, HENRIETTA_NAME);
+
       henriettaKindredCardTimer = setTimeout(() => {
         henriettaKindredCardTimer = null;
         if (window.innerWidth > 640) {
+          slideUpNarrativePlaceCard();
           showNarrativeKindredCard(HENRIETTA_ID, 'LGBTQ+ Welcoming', true);
           attachKindredCardInteraction(HENRIETTA_ID);
         }
-      }, 300);
+      }, 1200);
+
       lgbtqArcTimer = setTimeout(() => {
         lgbtqArcTimer = null;
         drawRainbowArcs(henrietta, places, () => {});
-      }, 1000);
+      }, 1200);
+
       map.easeTo({
         center: [-73.9588, 40.7029],
         zoom: 11.5,
@@ -2056,7 +2067,7 @@ function hideNarrativeConnectionCard() {
         bearing: 165,
         duration: 8000,
       });
-      setTimeout(() => showNarrativeHint(), 10000);
+      setTimeout(() => showNarrativeHint(), 8000);
     }
 
     else if (n === 6) {
@@ -2089,7 +2100,7 @@ function hideNarrativeConnectionCard() {
           attachKindredCardInteraction(TROPICANA_ID);
         }
       }, 1800);
-      setTimeout(() => showNarrativeHint(), 5000);
+      setTimeout(() => showNarrativeHint(), 4000);
     }
 
     else if (n === 7) {
@@ -2109,7 +2120,7 @@ function hideNarrativeConnectionCard() {
         toggle.classList.add('is-active');
         toggle.textContent = '◎ Web active';
       }
-      setTimeout(() => showNarrativeHint(), 6000);
+      setTimeout(() => showNarrativeHint(), 4000);
     }
 
     else if (n === 8) {
@@ -2133,7 +2144,7 @@ function hideNarrativeConnectionCard() {
         }
         showNarrativeConnectionCard(CONNECTION_DEMO_SOURCE_ID, CONNECTION_DEMO_TARGET_ID);
       }, 4000);
-      setTimeout(() => showNarrativeHint(), 6000);
+      setTimeout(() => showNarrativeHint(), 4000);
     }
     
 
