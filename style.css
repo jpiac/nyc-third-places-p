@@ -1,11 +1,11 @@
 :root {
-  --bg: #f6fbff;
-  --title-text: #151f5e;
-  --text: #2b2b2b;
-  --text-muted: #5068a0;
-  --accent: #2d5fa6;
-  --border: #bdd4f0;
-  --editorial-bg: #e5efff;
+  --bg: #f2f7ff;
+  --title-text: #0077ff;
+  --text: #1a2040;
+  --text-muted: #3d5a9a;
+  --accent: #0077ff;
+  --border: #99c0f0;
+  --editorial-bg: #ddeeff;
   --font-display: 'Impact', Georgia, serif;
   --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --transition: 250ms ease;
@@ -287,12 +287,6 @@ html, body {
 }
 
 #replay-narrative {
-  /* Previously margin-left:auto pushed the buttons to the right edge.
-     The new .search-container (margin-left:auto + margin-right:auto)
-     between subtitle and this button now provides the spacer that
-     centers the search and keeps the buttons flush right, so this
-     margin-left must be 0 — otherwise it would steal half the
-     available space and shift the search off-center. */
   margin-left: 0;
   background: transparent;
   border: 1px solid rgba(43,43,43,0.3);
@@ -396,11 +390,6 @@ html, body {
   text-transform: uppercase;
 }
 .legend-toggle:hover { opacity: 0.8; }
-/* Theme toggle — circular button next to the legend label. Swaps the
-   Mapbox basemap lightPreset between 'day' and 'night' and adds
-   body.theme-night so the rest of the chrome's dark-mode overrides
-   below take effect. Icon swaps between ☾ (when on day, inviting night)
-   and ☼ (when on night, inviting day). */
 .theme-toggle {
   display: inline-flex;
   align-items: center;
@@ -426,19 +415,12 @@ html, body {
   font-size: 14px;
   line-height: 1;
 }
-/* Horizontal row inside legend-content that holds the theme + 3D
-   toggles side by side. */
 .legend-controls {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
 }
-/* 3D objects toggle — same circular silhouette as the theme toggle so
-   the two read as a paired control. Inherits .theme-toggle base by
-   sharing the same dimensions/border treatment via this rule. The
-   .is-active state lights up when 3D is on (default); clicking flips
-   to the dim "off" look. */
 .three-d-toggle {
   display: inline-flex;
   align-items: center;
@@ -490,15 +472,11 @@ html, body {
   bottom: 20px;
   right: 20px;
 }
-/* Zoom controls stay out of the way during the scrollytelling intro —
-   the narrative drives the camera and any user-initiated zoom would
-   fight the scripted flyTo/easeTo passes. */
 body.narrative-active .mapboxgl-ctrl-group {
   display: none !important;
 }
 
-/* Kindred section header — keeps the section title and the second-tier
-   toggle on one row inside the sidebar. */
+/* Kindred section header */
 .kindred-header {
   display: flex;
   align-items: center;
@@ -510,9 +488,6 @@ body.narrative-active .mapboxgl-ctrl-group {
   margin: 0;
 }
 
-/* Second-tier kindred-web toggle — pill button that sits next to the
-   Kindred Places header. Reuses the same accent-on-active treatment as
-   the existing sidebar pills. */
 .second-tier-toggle {
   display: inline-flex;
   align-items: center;
@@ -547,8 +522,7 @@ body.narrative-active .mapboxgl-ctrl-group {
   line-height: 1;
 }
 
-/* About panel — slides in from the right opposite the sidebar. Higher
-   z-index than the sidebar so it overlays cleanly if both are open. */
+/* About panel */
 #about-btn {
   margin-left: 8px;
   background: transparent;
@@ -661,7 +635,7 @@ body.narrative-active .mapboxgl-ctrl-group {
 }
 .about-sources a:hover { text-decoration: underline; }
 
-/* Vibe chart — atmosphere icons + community identity tags. */
+/* Vibe chart */
 .vibe-chart { margin-bottom: 24px; }
 .vibe-grid {
   display: flex;
@@ -706,7 +680,7 @@ body.narrative-active .mapboxgl-ctrl-group {
   color: var(--text);
 }
 
-/* Kindred type breakdown — colored dots + legend below the kindred cards. */
+/* Kindred type breakdown */
 .kindred-type-breakdown {
   margin-top: 12px;
   padding-top: 12px;
@@ -744,9 +718,7 @@ body.narrative-active .mapboxgl-ctrl-group {
   flex-shrink: 0;
 }
 
-/* Community tag filter mode — the sidebar's kindred section is replaced
-   by a header with tag name + sub-filter controls and a scrollable list
-   of matching places. Driven by enterFilterMode in main.js. */
+/* Community tag filter mode */
 .filter-header {
   padding: 16px 0 12px;
   border-bottom: 1px solid var(--border);
@@ -843,8 +815,6 @@ body.narrative-active .mapboxgl-ctrl-group {
   font-style: italic;
 }
 
-/* Make community tag pills clickable when they carry a data-filter-tag.
-   Plain pills without the attribute keep their default inert styling. */
 .vibe-community-tag[data-filter-tag] {
   cursor: pointer;
   transition: all 0.15s;
@@ -859,8 +829,7 @@ body.narrative-active .mapboxgl-ctrl-group {
   border-color: var(--accent);
 }
 
-/* Mobile bottom-sheet drag handle. Hidden on desktop; the @media block below
-   shows it on small screens. JS attaches touch listeners only when mobile. */
+/* Mobile bottom-sheet drag handle */
 .sidebar-drag-handle {
   display: none;
   width: 36px;
@@ -998,15 +967,6 @@ body.narrative-active .mapboxgl-ctrl-group {
   margin: 0;
 }
 
-/* Night mode */
-body.theme-night .connection-soul {
-  background: var(--editorial-bg);
-  border-left-color: var(--border);
-}
-body.theme-night .connection-soul-text {
-  color: var(--text);
-}
-
 /* Mobile */
 @media (max-width: 640px) {
   .app-header {
@@ -1041,7 +1001,7 @@ body.theme-night .connection-soul-text {
   .hamburger-btn {
     justify-self: end;
   }
-  
+
   .legend-toggle {
     display: flex;
   }
@@ -1102,7 +1062,6 @@ body.theme-night .connection-soul-text {
 }
 
 @media (max-width: 640px) {
-  /* Hide the three individual buttons, show hamburger instead */
   #replay-narrative,
   #about-btn,
   #feedback-btn {
@@ -1139,7 +1098,7 @@ body.theme-night .connection-soul-text {
     position: absolute;
     top: 100%;
     right: 0;
-     background: var(--bg);
+    background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0,0,0,0.15);
@@ -1179,22 +1138,23 @@ body.theme-night .connection-soul-text {
 
 /* Night mode for hamburger */
 body.theme-night .hamburger-btn span {
-  background: rgba(255,255,255,0.85);
+  background: rgba(0, 204, 255, 0.7);
 }
 
 body.theme-night .hamburger-menu {
-  background: #0f0f1a;
-  border-color: rgba(255,255,255,0.12);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  background: #030e1e;
+  border-color: rgba(0, 204, 255, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 204, 255, 0.1);
 }
 
 body.theme-night .hamburger-menu button {
-  color: rgba(255,255,255,0.85);
-  border-bottom-color: rgba(255,255,255,0.08);
+  color: var(--text);
+  border-bottom-color: #0a3060;
 }
 
 body.theme-night .hamburger-menu button:hover {
-  background: rgba(255,255,255,0.06);
+  background: rgba(0, 204, 255, 0.06);
+  color: var(--accent);
 }
 
 /* Feedback modal */
@@ -1325,15 +1285,7 @@ body.theme-night .hamburger-menu button:hover {
 }
 .about-feedback-btn:hover { background: var(--accent); color: white; }
 
-/* ---------- Header search ----------
-   Two auto margins (left + right) on the search container, combined with
-   the existing margin-left:auto on #replay-narrative being overridden to
-   0 below, position the search bar in the visual middle of the header
-   while the buttons stay flush right.
-   The filters + results panels are absolutely positioned so toggling
-   them open does NOT grow the search container — and therefore does not
-   grow the header. Width on the input row is fixed for the same reason
-   (no focus-induced shifting of neighboring buttons). */
+/* ---------- Header search ---------- */
 .search-container {
   position: relative;
   margin-left: auto;
@@ -1353,13 +1305,13 @@ body.theme-night .hamburger-menu button:hover {
   width: 320px;
 }
 .search-input-row:hover:not(:focus-within) {
-  background: #dce8ff;
-  border-color: #a8c4e8;
+  background: #d0e6ff;
+  border-color: #6699ee;
 }
 .search-input-row:focus-within {
   background: #ffffff;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(45, 95, 166, 0.15);;
+  box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.18);
 }
 .search-icon {
   font-size: 13px;
@@ -1388,9 +1340,6 @@ body.theme-night .hamburger-menu button:hover {
   flex-shrink: 0;
 }
 .search-clear:hover { color: var(--text); }
-/* Filters live as an absolutely positioned dropdown so opening them
-   doesn't grow the search container vertically (which would grow the
-   header). Inline `display: flex` is set by JS on focus. */
 .search-filters {
   position: absolute;
   top: calc(100% + 6px);
@@ -1419,10 +1368,6 @@ body.theme-night .hamburger-menu button:hover {
   min-width: 80px;
 }
 .search-filter-select option { background: #ffffff; color: var(--text); }
-/* Results panel sits below the filter strip. Since the JS only shows
-   results when filters are also visible (focus is a prerequisite for
-   typing), the fixed ~56px offset always clears the filter row — no
-   :has() / dynamic offset needed. */
 .search-results {
   position: absolute;
   top: calc(100% + 6px + 56px);
@@ -1490,105 +1435,94 @@ body.theme-night .hamburger-menu button:hover {
 }
 
 /* ============================================================
-   Night theme — applied when body.theme-night is set by initTheme.
-   Pairs with the Mapbox basemap lightPreset: 'night' to keep the
-   chrome and the map visually consistent.
+   Night theme — cyberpunk deep blue
    ============================================================ */
 body.theme-night {
-  --bg: #14141f;
-  --title-text: #ececf2;
-  --text: #ececf2;
-  --text-muted: #a0a0b0;
-  --accent: #4072b8;
-  --border: #353548;
-  --editorial-bg: #20202e;
-  --shadow-sidebar: -4px 0 28px rgba(0, 0, 0, 0.5);
+  --bg: #020b18;
+  --title-text: #00a2ff;
+  --text: #b8deff;
+  --text-muted: #2d7ac8;
+  --accent: #00a2ff;
+  --border: #0a3060;
+  --editorial-bg: #040f20;
+  --shadow-sidebar: -4px 0 28px rgba(0, 204, 255, 0.2);
 }
 
-/* Header — translucent so the dark basemap shows through, but
-   dark enough that text reads cleanly. */
 body.theme-night .app-header {
-  background: rgba(20, 20, 30, 0.85);
-  border-bottom-color: var(--border);
+  background: rgba(2, 11, 24, 0.92);
+  border-bottom-color: #0a3060;
 }
 
-/* Sidebar (place detail) — solid dark panel. */
 body.theme-night .sidebar {
-  background: #1a1a26;
+  background: #030e1e;
 }
 body.theme-night .place-soul {
-  color: #d8d8e0;
+  color: #a0c8ee;
 }
 body.theme-night .place-editorial {
-  color: #c8c8d4;
+  color: #7ab0d8;
   background: var(--editorial-bg);
 }
 body.theme-night .kindred-card {
   color: var(--text);
 }
-/* Sidebar close button hover — light wash instead of the dark wash that
-   reads as "no hover" on a dark surface. */
 body.theme-night .sidebar-close:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 204, 255, 0.08);
 }
 
-/* Legend panel. */
 body.theme-night .legend {
-  background: rgba(20, 20, 30, 0.85);
+  background: rgba(2, 11, 24, 0.92);
 }
 
-/* About panel — solid dark, matches sidebar. */
 body.theme-night #about-panel {
-  background: #1a1a26;
+  background: #030e1e;
 }
 body.theme-night .about-section p,
 body.theme-night .about-section ul {
-  color: #c8c8d4;
+  color: #7ab0d8;
 }
 body.theme-night .about-sources p {
   color: var(--text-muted);
 }
 
-/* Search input row + dropdown panels. The static rgb(255,249,196)
-   filter-select rules from the original spec still apply; we just
-   swap the panel backgrounds + input text for the dark theme. */
 body.theme-night .search-input-row {
   background: var(--editorial-bg);
   border-color: var(--border);
 }
 body.theme-night .search-input-row:hover:not(:focus-within) {
-  background: #2a2a3e;
-  border-color: rgba(255, 255, 255, 0.2);
+  background: #061828;
+  border-color: rgba(0, 204, 255, 0.25);
 }
 body.theme-night .search-input-row:focus-within {
-  background: #2c2c40;
+  background: #071e32;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 204, 255, 0.12);
 }
 body.theme-night .search-input { color: var(--text); }
 body.theme-night .search-input::placeholder { color: var(--text-muted); }
 body.theme-night .search-filters,
 body.theme-night .search-results {
-  background: #1a1a26;
+  background: #030e1e;
   border-color: var(--border);
 }
 body.theme-night .search-filter-select {
-  background: #2a2a3a;
+  background: #040f20;
   color: var(--text);
   border-color: var(--border);
 }
 body.theme-night .search-filter-select option {
-  background: #2a2a3a;
+  background: #040f20;
   color: var(--text);
 }
 
 body.theme-night .filter-select {
-  background: #1a1a2e;
-  color: #e8e8f0;
-  border-color: rgba(255, 255, 255, 0.15);
+  background: #040f20;
+  color: var(--text);
+  border-color: var(--border);
 }
-
 body.theme-night .filter-select option {
-  background: #1a1a2e;
-  color: #e8e8f0;
+  background: #040f20;
+  color: var(--text);
 }
 
 body.theme-night .filter-done-btn {
@@ -1596,16 +1530,14 @@ body.theme-night .filter-done-btn {
   color: var(--accent);
   border-color: var(--accent);
 }
-
 body.theme-night .filter-done-btn:hover {
   background: var(--accent);
-  color: #0a0a12;
+  color: #020b18;
 }
 
 body.theme-night .filter-header {
-  border-bottom-color: rgba(255, 255, 255, 0.1);
+  border-bottom-color: #0a3060;
 }
-
 body.theme-night .filter-controls {
   background: transparent;
 }
@@ -1613,16 +1545,15 @@ body.theme-night .filter-controls {
 body.theme-night .search-result-item { color: var(--text); }
 body.theme-night .search-result-item:hover { background: var(--editorial-bg); }
 
-/* Feedback modal — kept the structure intact, just swap surfaces. */
 body.theme-night .feedback-modal-content,
 body.theme-night #feedback-modal-content,
 body.theme-night .feedback-modal-inner {
-  background: #1a1a26;
+  background: #030e1e;
   color: var(--text);
 }
 body.theme-night .feedback-modal textarea,
 body.theme-night #feedback-text {
-  background: #2a2a3a;
+  background: #040f20;
   color: var(--text);
   border-color: var(--border);
 }
@@ -1631,9 +1562,6 @@ body.theme-night .feedback-cancel-btn {
   border-color: var(--border);
 }
 
-/* Pills / vibe items / kindred breakdown — most of these already
-   reference --editorial-bg + --border + --text so they switch
-   automatically. A few hardcoded values need an explicit override. */
 body.theme-night .vibe-item.is-true .vibe-item-label { color: var(--text); }
 body.theme-night .vibe-community-tag {
   background: var(--editorial-bg);
@@ -1646,12 +1574,11 @@ body.theme-night .pill {
   border-color: var(--border);
 }
 
-/* Header buttons — light borders so they read against the dark header. */
 body.theme-night #replay-narrative,
 body.theme-night #about-btn,
 body.theme-night #feedback-btn {
-  border-color: rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 204, 255, 0.3);
+  color: #3a8abf;
 }
 body.theme-night #replay-narrative:hover,
 body.theme-night #about-btn:hover,
@@ -1660,7 +1587,10 @@ body.theme-night #feedback-btn:hover {
   color: var(--accent);
 }
 
-/* Map's "faded overlay" — when a place is selected the layer fades to
-   30% white over the basemap. In night mode that lightens the dark
-   map, which is the desired effect (selection still visually pops),
-   so we leave the layer's color alone. No CSS change needed. */
+body.theme-night .connection-soul {
+  background: var(--editorial-bg);
+  border-left-color: var(--border);
+}
+body.theme-night .connection-soul-text {
+  color: var(--text);
+}
