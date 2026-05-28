@@ -87,9 +87,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 const COLOR_BY_TYPE = {
-  cafe: '#E07A5F',
-  bar: '#4b5182',
-  pub: '#4b5182',
+  cafe: '#115cff',
+  bar: '#E07A5F',
+  pub: '#E07A5F',
   library: '#81B29A',
   community_centre: '#F2CC8F',
   social_facility: '#F2CC8F',
