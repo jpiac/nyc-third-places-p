@@ -965,6 +965,30 @@ body.narrative-active .mapboxgl-ctrl-group {
   margin: 0;
 }
 
+.connection-strength {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.connection-strength-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.connection-strength-label {
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+}
+.connection-strength-pct {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* Mobile */
 @media (max-width: 640px) {
   .app-header {

@@ -249,6 +249,32 @@ body.narrative-active #narrative-overlay,
   color: rgba(255, 255, 255, 0.92);
 }
 
+.narrative-connection-strength {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.narrative-connection-strength-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.narrative-connection-strength-label {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  flex: 1;
+}
+.narrative-connection-strength-pct {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
 /* Hide the main-experience chrome while the narrative is running so the
    overlay reads as cinematic. Restored when the user clicks the CTA.
    Transition lives on the base selector so it fires in BOTH directions

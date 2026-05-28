@@ -1799,6 +1799,42 @@ function renderConnectionPane(sourceId, targetId) {
   );
   parts.push('</div>'); // connection-header
 
+  if (scores && scores.total != null) {
+    const total = scores.total;
+
+    // Normalize against the actual score distribution:
+    // p25 = 0.219 (mapped to ~0), p95 = 0.521 (mapped to ~100)
+    // Anything above p95 gets capped at 100.
+    const P_LOW = 0.219;
+    const P_HIGH = 0.521;
+    const normalized = Math.round(
+      Math.min(100, Math.max(0, (total - P_LOW) / (P_HIGH - P_LOW) * 100))
+    );
+
+    let tier, tierColor;
+    if (total >= 0.46) {
+      tier = 'Exceptional Match';
+      tierColor = '#00aaff';
+    } else if (total >= 0.42) {
+      tier = 'Strong Match';
+      tierColor = '#4a9eff';
+    } else if (total >= 0.33) {
+      tier = 'Notable Match';
+      tierColor = '#7ab8ff';
+    } else {
+      tier = 'Kindred';
+      tierColor = '#99c0f0';
+    }
+
+    parts.push(
+      '<div class="connection-strength">' +
+        '<span class="connection-strength-dot" style="background:' + tierColor + '"></span>' +
+        '<span class="connection-strength-label" style="color:' + tierColor + '">' + tier + '</span>' +
+        '<span class="connection-strength-pct">' + normalized + ' / 100</span>' +
+      '</div>'
+    );
+  }
+
   // Score bars if available
   if (scores) {
     parts.push('<div class="section-title">Connection Strength</div>');

@@ -1538,6 +1538,37 @@
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
+    // Normalized connection strength
+  let strengthHtml = '';
+  if (scores && scores.total != null) {
+    const total = scores.total;
+    const P_LOW = 0.219;
+    const P_HIGH = 0.521;
+    const normalized = Math.round(
+      Math.min(100, Math.max(0, (total - P_LOW) / (P_HIGH - P_LOW) * 100))
+    );
+    let tier, tierColor;
+    if (total >= 0.46) {
+      tier = 'Exceptional Match';
+      tierColor = '#00ccff';
+    } else if (total >= 0.42) {
+      tier = 'Strong Match';
+      tierColor = '#4ac8ff';
+    } else if (total >= 0.33) {
+      tier = 'Notable Match';
+      tierColor = '#80d8ff';
+    } else {
+      tier = 'Kindred';
+      tierColor = 'rgba(255,255,255,0.6)';
+    }
+    strengthHtml =
+      '<div class="narrative-connection-strength">' +
+        '<span class="narrative-connection-strength-dot" style="background:' + tierColor + '"></span>' +
+        '<span class="narrative-connection-strength-label" style="color:' + tierColor + '">' + tier + '</span>' +
+        '<span class="narrative-connection-strength-pct">' + normalized + ' / 100</span>' +
+      '</div>';
+  }
+
   const tokenHtml = scores
     ? (() => {
         const bars = [
@@ -1619,6 +1650,7 @@
         '</div>' +
       '</div>' +
     '</div>' +
+    strengthHtml +
     tokenHtml;
 
   void card.offsetWidth;
