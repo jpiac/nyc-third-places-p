@@ -240,6 +240,11 @@ let showSecondTier = false;
 const CONSTELLATION_GROUP_COUNT = 20;
 let geojsonData = null;
 let selectedBuilding = null;
+let connectionView = false;
+let connectionSourceId = null;
+let connectionTargetId = null;
+let hoveredArcSourceId = null;
+let hoveredArcTargetId = null;
 
 const CONSTELLATION_TYPES = [
   'cafe', 'bar', 'pub', 'library', 'community_centre',
@@ -665,18 +670,60 @@ function buildFirstTierLayers(lineData) {
       data: lineData,
       getSourcePosition: (d) => d.path[0],
       getTargetPosition: (d) => d.path[1],
-      getColor: (d) => [d.color[0], d.color[1], d.color[2], 60],
-      getWidth: 5,
+      getColor: (d) => {
+        const isHovered = hoveredArcSourceId === d.sourceId &&
+                          hoveredArcTargetId === d.targetId;
+        return isHovered
+          ? [255, 255, 255, 120]
+          : [d.color[0], d.color[1], d.color[2], 60];
+      },
+      getWidth: (d) => {
+        const isHovered = hoveredArcSourceId === d.sourceId &&
+                          hoveredArcTargetId === d.targetId;
+        return isHovered ? 10 : 5;
+      },
       widthUnits: 'pixels',
+      pickable: true,
+      updateTriggers: {
+        getColor: [hoveredArcSourceId, hoveredArcTargetId],
+        getWidth: [hoveredArcSourceId, hoveredArcTargetId],
+      },
+      parameters: {
+        blendColorSrcFactor: 0x0302,
+        blendColorDstFactor: 1,
+        blendAlphaSrcFactor: 1,
+        blendAlphaDstFactor: 1,
+      },
     }),
     new deck.LineLayer({
       id: 'kindred-arcs',
       data: lineData,
       getSourcePosition: (d) => d.path[0],
       getTargetPosition: (d) => d.path[1],
-      getColor: (d) => d.color,
-      getWidth: 2.5,
+      getColor: (d) => {
+        const isHovered = hoveredArcSourceId === d.sourceId &&
+                          hoveredArcTargetId === d.targetId;
+        return isHovered
+          ? [Math.min(255, d.color[0] + 80), Math.min(255, d.color[1] + 80), Math.min(255, d.color[2] + 80), 255]
+          : d.color;
+      },
+      getWidth: (d) => {
+        const isHovered = hoveredArcSourceId === d.sourceId &&
+                          hoveredArcTargetId === d.targetId;
+        return isHovered ? 4 : 2.5;
+      },
       widthUnits: 'pixels',
+      pickable: true,
+      updateTriggers: {
+        getColor: [hoveredArcSourceId, hoveredArcTargetId],
+        getWidth: [hoveredArcSourceId, hoveredArcTargetId],
+      },
+      parameters: {
+        blendColorSrcFactor: 0x0302,
+        blendColorDstFactor: 1,
+        blendAlphaSrcFactor: 1,
+        blendAlphaDstFactor: 1,
+      },
     }),
   ];
 }
@@ -688,18 +735,60 @@ function buildSecondTierLayers(lineData) {
       data: lineData,
       getSourcePosition: (d) => d.path[0],
       getTargetPosition: (d) => d.path[1],
-      getColor: (d) => [d.color[0], d.color[1], d.color[2], 60],
-      getWidth: 3,
+      getColor: (d) => {
+        const isHovered = hoveredArcSourceId === d.sourceId &&
+                          hoveredArcTargetId === d.targetId;
+        return isHovered
+          ? [255, 255, 255, 100]
+          : [d.color[0], d.color[1], d.color[2], 60];
+      },
+      getWidth: (d) => {
+        const isHovered = hoveredArcSourceId === d.sourceId &&
+                          hoveredArcTargetId === d.targetId;
+        return isHovered ? 8 : 3;
+      },
       widthUnits: 'pixels',
+      pickable: true,
+      updateTriggers: {
+        getColor: [hoveredArcSourceId, hoveredArcTargetId],
+        getWidth: [hoveredArcSourceId, hoveredArcTargetId],
+      },
+      parameters: {
+        blendColorSrcFactor: 0x0302,
+        blendColorDstFactor: 1,
+        blendAlphaSrcFactor: 1,
+        blendAlphaDstFactor: 1,
+      },
     }),
     new deck.LineLayer({
       id: 'kindred-arcs-second',
       data: lineData,
       getSourcePosition: (d) => d.path[0],
       getTargetPosition: (d) => d.path[1],
-      getColor: (d) => [d.color[0], d.color[1], d.color[2], 220],
-      getWidth: 1.5,
+      getColor: (d) => {
+        const isHovered = hoveredArcSourceId === d.sourceId &&
+                          hoveredArcTargetId === d.targetId;
+        return isHovered
+          ? [Math.min(255, d.color[0] + 80), Math.min(255, d.color[1] + 80), Math.min(255, d.color[2] + 80), 255]
+          : [d.color[0], d.color[1], d.color[2], 220];
+      },
+      getWidth: (d) => {
+        const isHovered = hoveredArcSourceId === d.sourceId &&
+                          hoveredArcTargetId === d.targetId;
+        return isHovered ? 3 : 1.5;
+      },
       widthUnits: 'pixels',
+      pickable: true,
+      updateTriggers: {
+        getColor: [hoveredArcSourceId, hoveredArcTargetId],
+        getWidth: [hoveredArcSourceId, hoveredArcTargetId],
+      },
+      parameters: {
+        blendColorSrcFactor: 0x0302,
+        blendColorDstFactor: 1,
+        blendAlphaSrcFactor: 1,
+        blendAlphaDstFactor: 1,
+      },
     }),
   ];
 }
@@ -711,18 +800,6 @@ function renderArcs() {
   if (secondTierLineData.length > 0) layers.push(...buildSecondTierLayers(secondTierLineData));
   deckInstance.setProps({ layers });
 }
-
-// ---------- FIX: arc animation performance ----------
-// Four changes applied throughout the arc draw functions:
-// 1. Removed syncDeckView() from inside animation frames — already wired
-//    to map.on('move'), calling it during stationary animations was redundant.
-// 2. Replaced per-frame case expressions with literal opacity values —
-//    case expressions force Mapbox to re-evaluate all 12k features every
-//    frame; literals are applied as a single uniform update with no per-feature
-//    work, keeping animation at 60fps even on the full NYC dataset.
-// 3. Added PAINT_THROTTLE_MS (33ms = ~30fps) to setPaintProperty calls —
-//    the overlay fade-in doesn't need full 60fps.
-// 4. Set final literal values at animation end before restoring expressions.
 
 function drawKindredLines(placeId) {
   if (!deckInstance) return;
@@ -750,6 +827,8 @@ function drawKindredLines(placeId) {
       to: dest.coordinates,
       sourceColor: [...sourceColor, 255],
       targetColor: [...destColor, 255],
+      sourceId: placeId,
+      targetId: id,
     };
   }).filter(Boolean);
 
@@ -770,6 +849,8 @@ function drawKindredLines(placeId) {
     points: sampleArc(seg.from, seg.to, ARC_HEIGHT, ARC_POINTS),
     sourceColor: seg.sourceColor,
     targetColor: seg.targetColor,
+    sourceId: seg.sourceId,
+    targetId: seg.targetId,
   }));
 
   function frame(now) {
@@ -785,7 +866,12 @@ function drawKindredLines(placeId) {
       for (let i = 0; i < visiblePoints.length - 1; i++) {
         const segT = i / (ARC_POINTS - 1);
         const color = interpolateColorRgb(arc.sourceColor, arc.targetColor, segT);
-        lineData.push({ path: [visiblePoints[i], visiblePoints[i + 1]], color });
+        lineData.push({
+          path: [visiblePoints[i], visiblePoints[i + 1]],
+          color,
+          sourceId: arc.sourceId,
+          targetId: arc.targetId,
+        });
       }
     });
     firstTierLineData = lineData;
@@ -868,6 +954,8 @@ function drawSecondTierLines(firstTierIds) {
         to: secondPlace.coordinates,
         sourceColor: [...firstColor, 245],
         targetColor: [...secondColor, 245],
+        sourceId: firstId,
+        targetId: secondId,
       });
       destSourceIds.push(secondId);
     }
@@ -885,6 +973,8 @@ function drawSecondTierLines(firstTierIds) {
     points: sampleArc(seg.from, seg.to, ARC_HEIGHT, ARC_POINTS),
     sourceColor: seg.sourceColor,
     targetColor: seg.targetColor,
+    sourceId: seg.sourceId,
+    targetId: seg.targetId,
   }));
 
   secondTierDelayTimer = setTimeout(() => {
@@ -916,7 +1006,12 @@ function drawSecondTierLines(firstTierIds) {
         for (let i = 0; i < visiblePoints.length - 1; i++) {
           const segT = i / (ARC_POINTS - 1);
           const color = interpolateColorRgb(arc.sourceColor, arc.targetColor, segT);
-          lineData.push({ path: [visiblePoints[i], visiblePoints[i + 1]], color });
+          lineData.push({
+            path: [visiblePoints[i], visiblePoints[i + 1]],
+            color,
+            sourceId: arc.sourceId,
+            targetId: arc.targetId,
+          });
         }
       });
       secondTierLineData = lineData;
@@ -1603,6 +1698,300 @@ function setSelected(placeId) {
   map.setPaintProperty('faded-overlay', 'background-opacity', 0.3, { duration: 300 });
 }
 
+function drawSingleArc(sourceId, targetId) {
+  const source = featuresById.get(sourceId);
+  const target = featuresById.get(targetId);
+  if (!source || !target) return;
+
+  const sourceColor = hexToRgb(COLOR_BY_TYPE[source.osm_type] || COLOR_DEFAULT);
+  const targetColor = hexToRgb(COLOR_BY_TYPE[target.osm_type] || COLOR_DEFAULT);
+
+  const ARC_POINTS = 40;
+  const ARC_HEIGHT = 0.3;
+  const points = sampleArc(source.coordinates, target.coordinates, ARC_HEIGHT, ARC_POINTS);
+
+  const lineData = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const segT = i / (ARC_POINTS - 1);
+    const color = interpolateColorRgb(
+      [...sourceColor, 255],
+      [...targetColor, 255],
+      segT
+    );
+    lineData.push({
+      path: [points[i], points[i + 1]],
+      color,
+      sourceId,
+      targetId,
+    });
+  }
+  firstTierLineData = lineData;
+  secondTierLineData = [];
+  renderArcs();
+}
+
+function renderConnectionPane(sourceId, targetId) {
+  const source = featuresById.get(sourceId);
+  const target = featuresById.get(targetId);
+  if (!source || !target) return;
+
+  // Find the breakdown scores — stored on whichever place has the other as a kindred
+  const scores = source.similarity_scores &&
+    source.similarity_scores.find(s => s.id === targetId);
+
+  const sourceColor = COLOR_BY_TYPE[source.osm_type] || COLOR_DEFAULT;
+  const targetColor = COLOR_BY_TYPE[target.osm_type] || COLOR_DEFAULT;
+
+  const ATM_LABELS = {
+    outdoor_seating: 'Outdoor Seating',
+    live_music: 'Live Music',
+    good_for_groups: 'Good for Groups',
+    serves_coffee: 'Serves Coffee',
+    good_for_children: 'Family Friendly',
+    allows_dogs: 'Dog Friendly',
+    good_for_watching_sports: 'Sports Viewing',
+    serves_beer: 'Serves Beer',
+    serves_cocktails: 'Serves Cocktails',
+    serves_wine: 'Serves Wine',
+    reservable: 'Reservable',
+  };
+
+  const COMMUNITY_LABELS = {
+    lgbtq: 'LGBTQ+',
+    dfs_lgbtq_welcoming: 'LGBTQ+ Welcoming',
+    dfs_lgbtq_owned: 'LGBTQ+ Owned',
+    dfs_women_owned: 'Women-Owned',
+    dfs_asian_owned: 'Asian-Owned',
+    dfs_transgender_safe: 'Transgender Safe Space',
+    dfs_wheelchair_accessible: 'Wheelchair Accessible',
+    dfs_indigenous_owned: 'Indigenous-Owned',
+  };
+
+  const parts = [];
+
+  // Back button
+  parts.push(
+    '<button class="connection-back-btn" id="connection-back-btn">' +
+      '<span class="connection-back-arrow">←</span> Back' +
+    '</button>'
+  );
+
+  // Header — two places
+  parts.push('<div class="connection-header">');
+  parts.push(
+    '<div class="connection-place">' +
+      '<span class="connection-place-dot" style="background:' + sourceColor + '"></span>' +
+      '<div class="connection-place-info">' +
+        '<div class="connection-place-name">' + escapeHtml(source.name || '') + '</div>' +
+        '<div class="connection-place-type">' + escapeHtml(formatOsmType(source.osm_type)) + '</div>' +
+      '</div>' +
+    '</div>'
+  );
+  parts.push('<div class="connection-divider">↔</div>');
+  parts.push(
+    '<div class="connection-place">' +
+      '<span class="connection-place-dot" style="background:' + targetColor + '"></span>' +
+      '<div class="connection-place-info">' +
+        '<div class="connection-place-name">' + escapeHtml(target.name || '') + '</div>' +
+        '<div class="connection-place-type">' + escapeHtml(formatOsmType(target.osm_type)) + '</div>' +
+      '</div>' +
+    '</div>'
+  );
+  parts.push('</div>'); // connection-header
+
+  // Score bars if available
+  if (scores) {
+    parts.push('<div class="section-title">Connection Strength</div>');
+    parts.push('<div class="connection-scores">');
+
+    const bars = [
+      { label: 'Character', value: scores.text,       weight: 0.40 },
+      { label: 'Community', value: scores.community,  weight: 0.20 },
+      { label: 'Atmosphere', value: scores.atmosphere, weight: 0.20 },
+      { label: 'Place Type', value: scores.osm,       weight: 0.10 },
+      { label: 'Category',   value: scores.google,    weight: 0.10 },
+    ];
+
+    for (const bar of bars) {
+      const pct = Math.round(bar.value * 100);
+      const weighted = Math.round(bar.value * bar.weight * 100);
+      parts.push(
+        '<div class="connection-score-row">' +
+          '<div class="connection-score-label">' + escapeHtml(bar.label) + '</div>' +
+          '<div class="connection-score-bar-wrap">' +
+            '<div class="connection-score-bar" style="width:' + Math.round(bar.value * 100) + '%"></div>' +
+          '</div>' +
+          '<div class="connection-score-pct">' + pct + '%</div>' +
+        '</div>'
+      );
+    }
+    parts.push('</div>');
+  }
+
+  // Shared soul tokens
+  const DISPLAY_STOPWORDS = new Set([
+    // Generic descriptive words that appear in most soul summaries
+    'looking', 'draws', 'event', 'space', 'never', 'great', 'good', 'best',
+    'always', 'makes', 'made', 'make', 'come', 'comes', 'back', 'away',
+    'around', 'every', 'still', 'even', 'much', 'many', 'more', 'most',
+    'well', 'real', 'little', 'long', 'old', 'new', 'big', 'small',
+    'also', 'take', 'get', 'give', 'keep', 'talk', 'know', 'think',
+    'scene', 'night', 'day', 'time', 'people', 'crowd', 'world', 'life',
+    'city', 'local', 'place', 'spot', 'vibe', 'feel', 'kind', 'type',
+    'offers', 'offer', 'serving', 'serves', 'service', 'located',
+    'open', 'known', 'welcome', 'perfect', 'located', 'features',
+    'something', 'someone', 'somewhere', 'everything', 'everyone',
+    'whether', 'while', 'since', 'often', 'within', 'between',
+  ]);
+
+  const displayTokens = scores && scores.shared_tokens
+    ? scores.shared_tokens.filter(t => !DISPLAY_STOPWORDS.has(t) && t.length >= 4)
+    : [];
+
+  if (displayTokens.length > 0) {
+    parts.push('<div class="section-title">Shared Character</div>');
+    parts.push('<div class="atmosphere">');
+    for (const token of displayTokens) {
+      parts.push('<span class="pill">' + escapeHtml(token) + '</span>');
+    }
+    parts.push('</div>');
+  }
+
+  // Shared atmosphere
+  if (scores && scores.shared_atmosphere && scores.shared_atmosphere.length > 0) {
+    parts.push('<div class="section-title">Shared Vibe</div>');
+    parts.push('<div class="atmosphere">');
+    for (const atm of scores.shared_atmosphere) {
+      const label = ATM_LABELS[atm] || atm;
+      parts.push('<span class="pill">' + escapeHtml(label) + '</span>');
+    }
+    parts.push('</div>');
+  }
+
+  // Shared community
+  if (scores && scores.shared_community && scores.shared_community.length > 0) {
+    parts.push('<div class="section-title">Shared Identity</div>');
+    parts.push('<div class="atmosphere">');
+    for (const tag of scores.shared_community) {
+      const label = COMMUNITY_LABELS[tag] || tag.replace(/^(religion|cuisine|for):/, '');
+      parts.push('<span class="pill">' + escapeHtml(label) + '</span>');
+    }
+    parts.push('</div>');
+  }
+
+  // Soul summaries side by side
+  parts.push('<div class="section-title">Their Stories</div>');
+  parts.push('<div class="connection-souls">');
+  if (source.soul_summary) {
+    parts.push(
+      '<div class="connection-soul">' +
+        '<div class="connection-soul-name">' + escapeHtml(source.name) + '</div>' +
+        '<p class="connection-soul-text">' + escapeHtml(source.soul_summary) + '</p>' +
+      '</div>'
+    );
+  }
+  if (target.soul_summary) {
+    parts.push(
+      '<div class="connection-soul">' +
+        '<div class="connection-soul-name">' + escapeHtml(target.name) + '</div>' +
+        '<p class="connection-soul-text">' + escapeHtml(target.soul_summary) + '</p>' +
+      '</div>'
+    );
+  }
+  parts.push('</div>');
+
+  return parts.join('');
+}
+
+function openConnectionView(sourceId, targetId) {
+  // Resolve — the arc data has sourceId as the selected place, targetId as kindred.
+  // But similarity_scores may be on either place. Check both.
+  let resolvedSource = sourceId;
+  let resolvedTarget = targetId;
+
+  const sourcePlace = featuresById.get(sourceId);
+  const hasScores = sourcePlace && sourcePlace.similarity_scores &&
+    sourcePlace.similarity_scores.some(s => s.id === targetId);
+
+  if (!hasScores) {
+    // Try the other direction
+    const targetPlace = featuresById.get(targetId);
+    const hasScoresReverse = targetPlace && targetPlace.similarity_scores &&
+      targetPlace.similarity_scores.some(s => s.id === sourceId);
+    if (hasScoresReverse) {
+      resolvedSource = targetId;
+      resolvedTarget = sourceId;
+    }
+  }
+
+  connectionView = true;
+  connectionSourceId = resolvedSource;
+  connectionTargetId = resolvedTarget;
+
+ // Clear all arcs, draw just the single connection arc
+  if (arcAnimFrame !== null) {
+    cancelAnimationFrame(arcAnimFrame);
+    arcAnimFrame = null;
+  }
+  clearSecondTierLines();
+  drawSingleArc(resolvedSource, resolvedTarget);
+
+  // Move selected highlight to the source endpoint of this arc,
+  // clearing the previously selected place dot if it's different.
+  if (selectedId !== null && selectedId !== resolvedSource) {
+    map.setFeatureState(
+      { source: 'places', sourceLayer: 'nyc_places', id: selectedId },
+      { selected: false }
+    );
+  }
+  map.setFeatureState(
+    { source: 'places', sourceLayer: 'nyc_places', id: resolvedSource },
+    { selected: true }
+  );
+  selectedId = resolvedSource;
+
+  // Show only the two arc endpoint dots, hide all others
+  for (const id of connectedIds) {
+    if (id !== resolvedSource && id !== resolvedTarget) {
+      map.setFeatureState(
+        { source: 'places', sourceLayer: 'nyc_places', id },
+        { connected: false }
+      );
+    }
+  }
+  connectedIds.clear();
+  map.setFeatureState(
+    { source: 'places', sourceLayer: 'nyc_places', id: resolvedTarget },
+    { connected: true }
+  );
+  connectedIds.add(resolvedTarget);
+
+  // Render connection pane
+  const content = document.getElementById('sidebar-content');
+  content.innerHTML = renderConnectionPane(resolvedSource, resolvedTarget);
+  content.scrollTop = 0;
+
+  // Wire back button
+  const backBtn = document.getElementById('connection-back-btn');
+  if (backBtn) {
+    backBtn.addEventListener('click', closeConnectionView);
+  }
+}
+
+function closeConnectionView() {
+  if (!connectionView) return;
+  connectionView = false;
+  const prevSourceId = connectionSourceId;
+  connectionSourceId = null;
+  connectionTargetId = null;
+
+  // Return to the place that was selected before
+  if (prevSourceId) {
+    openSidebar(prevSourceId);
+  }
+}
+window.closeConnectionView = closeConnectionView;
+
 function openSidebar(placeId) {
   const place = featuresById.get(placeId);
   if (!place) return;
@@ -2128,25 +2517,29 @@ async function initMap() {
   deckCanvas.id = 'deck-canvas';
   mapContainer.appendChild(deckCanvas);
 
+
+  const mapCanvas = map.getCanvas();
+
+
   const center = map.getCenter();
   deckInstance = new deck.Deck({
-    canvas: deckCanvas,
-    width: '100%',
-    height: '100%',
-    initialViewState: {
-      longitude: center.lng,
-      latitude: center.lat,
-      zoom: map.getZoom(),
-      pitch: map.getPitch(),
-      bearing: map.getBearing(),
-    },
-    controller: false,
-    layers: [],
-    onWebGLInitialized: (gl) => {
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    },
-  });
+  canvas: deckCanvas,
+  width: '100%',
+  height: '100%',
+  initialViewState: {
+    longitude: center.lng,
+    latitude: center.lat,
+    zoom: map.getZoom(),
+    pitch: map.getPitch(),
+    bearing: map.getBearing(),
+  },
+  controller: false,
+  layers: [],
+  onWebGLInitialized: (gl) => {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  },
+});
 
   window.deckInstance = deckInstance;
 
@@ -2416,6 +2809,7 @@ async function initMap() {
   initLegend();
   initTheme();
   init3dToggle();
+  initArcInteraction();
 
   function onCircleMouseEnter(e) {
     if (!e.features.length) return;
@@ -2513,6 +2907,60 @@ async function initMap() {
   map.on('error', (e) => {
     console.error('Mapbox error:', e && e.error ? e.error : e);
   });
+}
+
+function initArcInteraction() {
+  const mapCanvas = map.getCanvas();
+
+  mapCanvas.addEventListener('mousemove', (e) => {
+    if (!deckInstance || (firstTierLineData.length === 0 && secondTierLineData.length === 0)) {
+      if (hoveredArcSourceId !== null) {
+        hoveredArcSourceId = null;
+        hoveredArcTargetId = null;
+        renderArcs();
+      }
+      return;
+    }
+
+    const rect = mapCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const picked = deckInstance.pickObject({ x, y, radius: 6 });
+
+    if (picked && picked.object && picked.object.sourceId) {
+      const { sourceId, targetId } = picked.object;
+      if (hoveredArcSourceId !== sourceId || hoveredArcTargetId !== targetId) {
+        hoveredArcSourceId = sourceId;
+        hoveredArcTargetId = targetId;
+        renderArcs();
+      }
+      mapCanvas.style.cursor = 'pointer';
+    } else {
+      if (hoveredArcSourceId !== null) {
+        hoveredArcSourceId = null;
+        hoveredArcTargetId = null;
+        renderArcs();
+        mapCanvas.style.cursor = '';
+      }
+    }
+  });
+
+  mapCanvas.addEventListener('click', (e) => {
+    if (!deckInstance || (firstTierLineData.length === 0 && secondTierLineData.length === 0)) return;
+
+    const rect = mapCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const picked = deckInstance.pickObject({ x, y, radius: 6 });
+
+    if (picked && picked.object && picked.object.sourceId && picked.object.targetId) {
+      openConnectionView(picked.object.sourceId, picked.object.targetId);
+      // Stop the event so Mapbox's own click handler doesn't also fire
+      e.stopImmediatePropagation();
+    }
+  }, true); // useCapture:true so we get it before Mapbox
 }
 
 function toggleAbout() {
