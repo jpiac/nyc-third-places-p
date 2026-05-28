@@ -949,7 +949,6 @@ body.narrative-active .mapboxgl-ctrl-group {
   padding: 12px 14px;
   background: var(--editorial-bg);
   border-radius: 6px;
-  border-left: 3px solid var(--border);
 }
 .connection-soul-name {
   font-size: 11px;
@@ -1461,6 +1460,7 @@ body.theme-night .place-soul {
 body.theme-night .place-editorial {
   color: #7ab0d8;
   background: var(--editorial-bg);
+  border: 1px solid var(--border);
 }
 body.theme-night .kindred-card {
   color: var(--text);
@@ -1588,7 +1588,7 @@ body.theme-night #feedback-btn:hover {
 
 body.theme-night .connection-soul {
   background: var(--editorial-bg);
-  border-left-color: var(--border);
+  border: 1px solid var(--border);
 }
 body.theme-night .connection-soul-text {
   color: var(--text);
