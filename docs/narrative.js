@@ -1982,7 +1982,7 @@ function hideNarrativeConnectionCard() {
         bearing: 0,
         duration: 3000,
       });
-      setTimeout(() => showNarrativeHint(), 3000);
+      setTimeout(() => showNarrativeHint(), 4000);
     }
 
     else if (n === 2) {
@@ -1998,7 +1998,7 @@ function hideNarrativeConnectionCard() {
       constellationTimers.push(setTimeout(() => revealGroup(1), 1000));
       constellationTimers.push(setTimeout(() => fadeOutConstellation(), 4500));
       setTimeout(() => drawSubwayLines(), 400);
-      setTimeout(() => showNarrativeHint(), 6000);
+      setTimeout(() => showNarrativeHint(), 7000);
     }
 
     else if (n === 3) {
@@ -2011,7 +2011,7 @@ function hideNarrativeConnectionCard() {
         bearing: -20,
         duration: 8000
       });
-      setTimeout(() => showNarrativeHint(), 8000);
+      setTimeout(() => showNarrativeHint(), 9000);
     }
 
     else if (n === 4) {
@@ -2031,7 +2031,7 @@ function hideNarrativeConnectionCard() {
         const places = selectLgbtqPlaces(50);
         drawLgbtqDots(places, () => {});
       }, 2500);
-      setTimeout(() => showNarrativeHint(), 8000);
+      setTimeout(() => showNarrativeHint(), 9000);
     }
 
     else if (n === 5) {
@@ -2067,7 +2067,7 @@ function hideNarrativeConnectionCard() {
         bearing: 165,
         duration: 8000,
       });
-      setTimeout(() => showNarrativeHint(), 8000);
+      setTimeout(() => showNarrativeHint(), 9000);
     }
 
     else if (n === 6) {
@@ -2100,7 +2100,7 @@ function hideNarrativeConnectionCard() {
           attachKindredCardInteraction(TROPICANA_ID);
         }
       }, 1800);
-      setTimeout(() => showNarrativeHint(), 4000);
+      setTimeout(() => showNarrativeHint(), 5000);
     }
 
     else if (n === 7) {
@@ -2120,7 +2120,7 @@ function hideNarrativeConnectionCard() {
         toggle.classList.add('is-active');
         toggle.textContent = '◎ Web active';
       }
-      setTimeout(() => showNarrativeHint(), 4000);
+      setTimeout(() => showNarrativeHint(), 5000);
     }
 
     else if (n === 8) {
@@ -2133,7 +2133,7 @@ function hideNarrativeConnectionCard() {
         center: [-73.932, 40.747],
         zoom: 12,
         pitch: 50,
-        bearing:-85,
+        bearing:-55,
         duration: 4000,
       });
 
@@ -2144,7 +2144,7 @@ function hideNarrativeConnectionCard() {
         }
         showNarrativeConnectionCard(CONNECTION_DEMO_SOURCE_ID, CONNECTION_DEMO_TARGET_ID);
       }, 4000);
-      setTimeout(() => showNarrativeHint(), 4000);
+      setTimeout(() => showNarrativeHint(), 5000);
     }
     
 
