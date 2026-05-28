@@ -991,9 +991,31 @@ body.narrative-active .mapboxgl-ctrl-group {
     justify-content: center;
   }
 
+  .search-input {
+    font-size: 16px;
+  }
+
   .search-input-row {
     width: 100%;
     max-width: 180px;
+  }
+
+  .search-filters,
+  .search-results {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    min-width: unset;
+    top: auto;
+    margin-top: 8px;
+  }
+
+  .search-filters {
+    top: 54px;
+  }
+
+  .search-results {
+    top: 110px;
   }
 
   .hamburger-btn {
