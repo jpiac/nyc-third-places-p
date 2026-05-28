@@ -1828,35 +1828,6 @@ function renderConnectionPane(sourceId, targetId) {
     parts.push('</div>');
   }
 
-  // Shared soul tokens
-  const DISPLAY_STOPWORDS = new Set([
-    // Generic descriptive words that appear in most soul summaries
-    'looking', 'draws', 'event', 'space', 'never', 'great', 'good', 'best',
-    'always', 'makes', 'made', 'make', 'come', 'comes', 'back', 'away',
-    'around', 'every', 'still', 'even', 'much', 'many', 'more', 'most',
-    'well', 'real', 'little', 'long', 'old', 'new', 'big', 'small',
-    'also', 'take', 'get', 'give', 'keep', 'talk', 'know', 'think',
-    'scene', 'night', 'day', 'time', 'people', 'crowd', 'world', 'life',
-    'city', 'local', 'place', 'spot', 'vibe', 'feel', 'kind', 'type',
-    'offers', 'offer', 'serving', 'serves', 'service', 'located',
-    'open', 'known', 'welcome', 'perfect', 'located', 'features',
-    'something', 'someone', 'somewhere', 'everything', 'everyone',
-    'whether', 'while', 'since', 'often', 'within', 'between',
-  ]);
-
-  const displayTokens = scores && scores.shared_tokens
-    ? scores.shared_tokens.filter(t => !DISPLAY_STOPWORDS.has(t) && t.length >= 4)
-    : [];
-
-  if (displayTokens.length > 0) {
-    parts.push('<div class="section-title">Shared Character</div>');
-    parts.push('<div class="atmosphere">');
-    for (const token of displayTokens) {
-      parts.push('<span class="pill">' + escapeHtml(token) + '</span>');
-    }
-    parts.push('</div>');
-  }
-
   // Shared atmosphere
   if (scores && scores.shared_atmosphere && scores.shared_atmosphere.length > 0) {
     parts.push('<div class="section-title">Shared Vibe</div>');

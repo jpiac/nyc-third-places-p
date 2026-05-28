@@ -1962,6 +1962,8 @@ function hideNarrativeConnectionCard() {
     currentStep = n;
     showStep(n);
 
+    hideNarrativeHint();
+
     if (overlayEl) {
       overlayEl.classList.remove('is-interactive');
       overlayEl.style.pointerEvents = '';
@@ -1996,11 +1998,13 @@ function hideNarrativeConnectionCard() {
       constellationTimers.push(setTimeout(() => revealGroup(1), 1000));
       constellationTimers.push(setTimeout(() => fadeOutConstellation(), 4500));
       setTimeout(() => drawSubwayLines(), 400);
+      setTimeout(() => showNarrativeHint(), 6000);
     }
 
     else if (n === 3) {
       clearSubwayLines();
       constellationReveal();
+      setTimeout(() => showNarrativeHint(), 3000);
     }
 
     else if (n === 4) {
@@ -2022,6 +2026,7 @@ function hideNarrativeConnectionCard() {
         const places = selectLgbtqPlaces(50);
         drawLgbtqDots(places, () => {});
       }, 2500);
+      setTimeout(() => showNarrativeHint(), 17000);
     }
 
     else if (n === 5) {
@@ -2051,6 +2056,7 @@ function hideNarrativeConnectionCard() {
         bearing: 165,
         duration: 8000,
       });
+      setTimeout(() => showNarrativeHint(), 10000);
     }
 
     else if (n === 6) {
@@ -2083,6 +2089,7 @@ function hideNarrativeConnectionCard() {
           attachKindredCardInteraction(TROPICANA_ID);
         }
       }, 1800);
+      setTimeout(() => showNarrativeHint(), 5000);
     }
 
     else if (n === 7) {
@@ -2102,6 +2109,7 @@ function hideNarrativeConnectionCard() {
         toggle.classList.add('is-active');
         toggle.textContent = '◎ Web active';
       }
+      setTimeout(() => showNarrativeHint(), 6000);
     }
 
     else if (n === 8) {
@@ -2125,6 +2133,7 @@ function hideNarrativeConnectionCard() {
         }
         showNarrativeConnectionCard(CONNECTION_DEMO_SOURCE_ID, CONNECTION_DEMO_TARGET_ID);
       }, 4000);
+      setTimeout(() => showNarrativeHint(), 6000);
     }
     
 
