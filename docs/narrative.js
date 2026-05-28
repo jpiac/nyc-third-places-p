@@ -14,6 +14,9 @@
   const HENRIETTA_ID = 'osm_6182279414';
   const HENRIETTA_NAME = 'Henrietta Hudson';
 
+  const CONNECTION_DEMO_SOURCE_ID = 'osm_2761570412'; // City Coffee Bar
+  const CONNECTION_DEMO_TARGET_ID = 'osm_10776706633'; // Käfē Bar & Bistro
+
   const RAINBOW_ARC_COLORS = [
     [255, 0, 24],
     [255, 125, 0],
@@ -1489,6 +1492,147 @@
     setTimeout(() => { try { el.remove(); } catch (e) {} }, 450);
   }
 
+  function showNarrativeConnectionCard(sourceId, targetId) {
+  const source = lookupPlace(sourceId);
+  const target = lookupPlace(targetId);
+  if (!source || !target) return;
+
+  const colorByType = window.COLOR_BY_TYPE || {};
+  const defaultColor = window.COLOR_DEFAULT || '#888888';
+  const sourceColor = colorByType[source.osm_type] || defaultColor;
+  const targetColor = colorByType[target.osm_type] || defaultColor;
+
+  // Get shared tokens from similarity_scores
+  const scores = source.similarity_scores &&
+    source.similarity_scores.find(s => s.id === targetId);
+  const DISPLAY_STOPWORDS = new Set([
+    'looking','draws','event','space','never','great','good','best',
+    'always','makes','made','make','come','comes','back','away',
+    'around','every','still','even','much','many','more','most',
+    'well','real','little','long','old','new','big','small',
+    'also','take','get','give','keep','talk','know','think',
+    'scene','night','day','time','people','crowd','world','life',
+    'city','local','place','spot','vibe','feel','kind','type',
+    'offers','offer','serving','serves','service','located',
+    'open','known','welcome','perfect','features','something',
+    'someone','whether','while','since','often','within','between',
+  ]);
+  const tokens = scores && scores.shared_tokens
+    ? scores.shared_tokens.filter(t => !DISPLAY_STOPWORDS.has(t) && t.length >= 4).slice(0, 5)
+    : [];
+
+  const formatType = (t) => {
+    const LABELS = {
+      cafe:'Café', bar:'Bar', pub:'Pub', nightclub:'Nightclub',
+      music_venue:'Music Venue', library:'Library', park:'Park',
+      community_centre:'Community Center', arts_centre:'Arts Center',
+      theatre:'Theater', museum:'Museum', gallery:'Gallery',
+      place_of_worship:'Place of Worship', fitness_centre:'Fitness Center',
+      sports_centre:'Sports Center', hairdresser:'Hair Salon',
+      beauty:'Beauty Salon', bakery:'Bakery', deli:'Deli',
+    };
+    return LABELS[t] || t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  const safe = (s) => String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  const tokenHtml = scores
+    ? (() => {
+        const bars = [
+          { label: 'Character',  value: scores.text },
+          { label: 'Community',  value: scores.community },
+          { label: 'Atmosphere', value: scores.atmosphere },
+          { label: 'Place Type', value: scores.osm },
+          { label: 'Category',   value: scores.google },
+        ];
+
+        const ATM_LABELS = {
+          outdoor_seating: 'Outdoor Seating',
+          live_music: 'Live Music',
+          good_for_groups: 'Good for Groups',
+          serves_coffee: 'Serves Coffee',
+          good_for_children: 'Family Friendly',
+          allows_dogs: 'Dog Friendly',
+          good_for_watching_sports: 'Sports Viewing',
+          serves_beer: 'Serves Beer',
+          serves_cocktails: 'Serves Cocktails',
+          serves_wine: 'Serves Wine',
+          reservable: 'Reservable',
+        };
+
+        const barsHtml =
+          '<div class="narrative-connection-label">Connection Strength</div>' +
+          '<div class="narrative-connection-scores">' +
+          bars.map(b => {
+            const pct = Math.round(b.value * 100);
+            return (
+              '<div class="narrative-connection-score-row">' +
+                '<div class="narrative-connection-score-label">' + safe(b.label) + '</div>' +
+                '<div class="narrative-connection-score-bar-wrap">' +
+                  '<div class="narrative-connection-score-bar" style="width:' + pct + '%"></div>' +
+                '</div>' +
+                '<div class="narrative-connection-score-pct">' + pct + '%</div>' +
+              '</div>'
+            );
+          }).join('') +
+          '</div>';
+
+        const sharedAtm = (scores.shared_atmosphere || [])
+          .map(a => ATM_LABELS[a] || a)
+          .filter(Boolean);
+
+        const atmHtml = sharedAtm.length
+          ? '<div class="narrative-connection-label" style="margin-top:12px">Shared Vibe</div>' +
+            '<div class="narrative-connection-tokens">' +
+            sharedAtm.map(a => '<span class="narrative-connection-token">' + safe(a) + '</span>').join('') +
+            '</div>'
+          : '';
+
+        return barsHtml + atmHtml;
+      })()
+    : '';
+
+  let card = document.getElementById('narrative-connection-card');
+  if (!card) {
+    card = document.createElement('div');
+    card.id = 'narrative-connection-card';
+    document.body.appendChild(card);
+  }
+
+  card.innerHTML =
+    '<div class="narrative-connection-places">' +
+      '<div class="narrative-connection-place">' +
+        '<span class="narrative-connection-dot" style="background:' + sourceColor + '"></span>' +
+        '<div>' +
+          '<div class="narrative-connection-place-name">' + safe(source.name || '') + '</div>' +
+          '<div class="narrative-connection-place-type">' + safe(formatType(source.osm_type)) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="narrative-connection-divider">↔</div>' +
+      '<div class="narrative-connection-place">' +
+        '<span class="narrative-connection-dot" style="background:' + targetColor + '"></span>' +
+        '<div>' +
+          '<div class="narrative-connection-place-name">' + safe(target.name || '') + '</div>' +
+          '<div class="narrative-connection-place-type">' + safe(formatType(target.osm_type)) + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    tokenHtml;
+
+  void card.offsetWidth;
+  card.classList.add('is-visible');
+}
+
+function hideNarrativeConnectionCard() {
+  const card = document.getElementById('narrative-connection-card');
+  if (card) {
+    card.classList.remove('is-visible');
+    setTimeout(() => { try { card.remove(); } catch (e) {} }, 450);
+  }
+}
+
   function buildKindredItemMarkup(placeId) {
     const place = lookupPlace(placeId);
     if (!place) return '';
@@ -1836,7 +1980,7 @@
         bearing: 0,
         duration: 3000,
       });
-      setTimeout(() => showNarrativeHint(), 2000);
+      setTimeout(() => showNarrativeHint(), 3000);
     }
 
     else if (n === 2) {
@@ -1867,12 +2011,12 @@
         { t: 0.75, center: [-74.00608, 40.732055],      zoom: 15.7, pitch: 70, bearing: 0  },
         { t: 1.0,  center: HENRIETTA_COORDS,            zoom: 16,   pitch: 76, bearing: 40 },
       ];
-      animateCameraPath(beat4Path, 10000, () => {});
+      animateCameraPath(beat4Path, 15000, () => {});
       henriettaHighlightTimer = setTimeout(() => {
         henriettaHighlightTimer = null;
         startHenriettaHighlight();
         if (window.innerWidth > 640) showNarrativePlaceCard(HENRIETTA_ID, HENRIETTA_NAME);
-      }, 6000);
+      }, 10000);
       lgbtqDotsTimer = setTimeout(() => {
         lgbtqDotsTimer = null;
         const places = selectLgbtqPlaces(50);
@@ -1901,11 +2045,11 @@
         drawRainbowArcs(henrietta, places, () => {});
       }, 1000);
       map.easeTo({
-        center: INITIAL_CENTER,
-        zoom: 11,
-        pitch: INITIAL_PITCH,
-        bearing: -80,
-        duration: 5000,
+        center: [-73.9588, 40.7029],
+        zoom: 11.5,
+        pitch:35,
+        bearing: 165,
+        duration: 8000,
       });
     }
 
@@ -1919,7 +2063,7 @@
         center: [-73.95, 40.76388],
         zoom: 11.7,
         pitch: 60,
-        bearing: 210,
+        bearing: 185,
         duration: 4000,
       });
       tropicanaCardTimer = setTimeout(() => {
@@ -1946,7 +2090,7 @@
         center: [-73.92, 40.76388],
         zoom: 11.8,
         pitch: 65,
-        bearing: 180,
+        bearing: 210,
         duration: 4000,
       });
       showNarrativeWebBadge();
@@ -1961,12 +2105,41 @@
     }
 
     else if (n === 8) {
+      clearAllNarrativeBeatTimers();
+      hideNarrativeKindredCard();
+      hideNarrativePlaceCard();
+
+      // Fly to City Coffee Bar's location to frame the connection demo
+      map.flyTo({
+        center: [-73.932, 40.747],
+        zoom: 12,
+        pitch: 50,
+        bearing:-85,
+        duration: 4000,
+      });
+
+      // After camera settles open the connection view and show the card
+      setTimeout(() => {
+        if (typeof window.openConnectionView === 'function') {
+          window.openConnectionView(CONNECTION_DEMO_SOURCE_ID, CONNECTION_DEMO_TARGET_ID);
+        }
+        showNarrativeConnectionCard(CONNECTION_DEMO_SOURCE_ID, CONNECTION_DEMO_TARGET_ID);
+      }, 4000);
+    }
+    
+
+    else if (n === 9) {
       hideNarrativeHint();
+      hideNarrativeConnectionCard();
       clearNarrativeArcs();
       clearTropicanaHighlight();
       hideNarrativeKindredCard();
       hideNarrativePlaceCard();
       clearAllNarrativeBeatTimers();
+      // Close any open connection/sidebar view from beat 8
+      if (typeof window.closeSidebar === 'function') {
+        try { window.closeSidebar(); } catch (e) {}
+      }
       map.easeTo({
         center: INITIAL_CENTER,
         zoom: 11,
@@ -2114,14 +2287,14 @@ function hideNarrativeHint() {
         return;
       }
       if (overlayEl.classList.contains('is-interactive')) return;
-      if (currentStep < 8) goToStep(currentStep + 1);
+      if (currentStep < 9) goToStep(currentStep + 1);
     });
 
     document.addEventListener('keydown', (e) => {
       if (!isNarrativeActive()) return;
       if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
         e.preventDefault();
-        if (currentStep < 8) goToStep(currentStep + 1);
+        if (currentStep < 9) goToStep(currentStep + 1);
       }
     });
   }

@@ -357,6 +357,135 @@ body.narrative-active .legend {
   pointer-events: auto;
 }
 
+/* Beat 8 connection demo card — mimics the connection pane UI as a
+   floating card. Slides in from the right like the other narrative cards. */
+#narrative-connection-card {
+  position: fixed;
+  right: 24px;
+  bottom: 120px;
+  width: 320px;
+  background: rgba(0, 0, 0, 0.75);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 101;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(120%);
+  transition: transform 0.4s ease, opacity 0.4s ease;
+}
+#narrative-connection-card.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+.narrative-connection-places {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+.narrative-connection-place {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.narrative-connection-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.narrative-connection-place-name {
+  font-family: 'Impact', Georgia, serif;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.narrative-connection-place-type {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 2px;
+}
+.narrative-connection-divider {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.4);
+  padding-left: 20px;
+}
+.narrative-connection-label {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 8px;
+}
+.narrative-connection-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.narrative-connection-token {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+@media (max-width: 640px) {
+  #narrative-connection-card {
+    display: none;
+  }
+}
+
+.narrative-connection-scores {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.narrative-connection-score-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.narrative-connection-score-label {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  width: 72px;
+  flex-shrink: 0;
+}
+.narrative-connection-score-bar-wrap {
+  flex: 1;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.narrative-connection-score-bar {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 2px;
+}
+.narrative-connection-score-pct {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 .narrative-place-name {
   font-family: 'Impact', Georgia, serif;
   font-size: 20px;
