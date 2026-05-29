@@ -1542,31 +1542,29 @@
   let strengthHtml = '';
   if (scores && scores.total != null) {
     const total = scores.total;
-
-    const P_LOW    = 0.38;  // floor — displays as DISPLAY_LOW
-    const P_HIGH   = 0.963; // actual max
-    const DISPLAY_LOW  = 38;
+    const P_LOW = 0.380;
+    const P_HIGH = 0.963;
+    const DISPLAY_LOW = 38;
     const DISPLAY_HIGH = 100;
-
     const normalized = Math.round(
       DISPLAY_LOW + (total - P_LOW) / (P_HIGH - P_LOW) * (DISPLAY_HIGH - DISPLAY_LOW)
     );
-
     let tier, tierColor;
-    if (total >= 0.683) {        // p90+ → displays ~68-100/100
+    if (total >= 0.683) {
       tier = 'Exceptional';
-      tierColor = '#00aaff';
-    } else if (total >= 0.619) { // p75–p90 → displays ~61-68/100
+      tierColor = '#00ccff';
+    } else if (total >= 0.619) {
       tier = 'Strong';
-      tierColor = '#4a9eff';
-    } else if (total >= 0.536) { // median–p75 → displays ~53-61/100
+      tierColor = '#4ac8ff';
+    } else if (total >= 0.536) {
       tier = 'Notable';
-      tierColor = '#7ab8ff';
-    } else {                     // floor–median → displays ~38-53/100
+      tierColor = '#80d8ff';
+    } else {
       tier = 'Kindred';
-      tierColor = '#99c0f0';
+      tierColor = 'rgba(180, 220, 255, 0.7)';
     }
     strengthHtml =
+      '<div class="narrative-connection-label">Connection Strength</div>' +
       '<div class="narrative-connection-strength">' +
         '<span class="narrative-connection-strength-dot" style="background:' + tierColor + '"></span>' +
         '<span class="narrative-connection-strength-label" style="color:' + tierColor + '">' + tier + '</span>' +
@@ -1599,7 +1597,6 @@
         };
 
         const barsHtml =
-          '<div class="narrative-connection-label">Connection Strength</div>' +
           '<div class="narrative-connection-scores">' +
           bars.map(b => {
             const pct = Math.round(b.value * 100);

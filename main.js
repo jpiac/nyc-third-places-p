@@ -1801,31 +1801,29 @@ function renderConnectionPane(sourceId, targetId) {
 
   if (scores && scores.total != null) {
     const total = scores.total;
-
-    const P_LOW    = 0.38;  // floor — displays as DISPLAY_LOW
-    const P_HIGH   = 0.963; // actual max
+    const P_LOW    = 0.380;
+    const P_HIGH   = 0.963;
     const DISPLAY_LOW  = 38;
     const DISPLAY_HIGH = 100;
-
     const normalized = Math.round(
       DISPLAY_LOW + (total - P_LOW) / (P_HIGH - P_LOW) * (DISPLAY_HIGH - DISPLAY_LOW)
     );
-
     let tier, tierColor;
-    if (total >= 0.683) {        // p90+ → displays ~68-100/100
+    if (total >= 0.683) {
       tier = 'Exceptional';
       tierColor = '#00aaff';
-    } else if (total >= 0.619) { // p75–p90 → displays ~61-68/100
+    } else if (total >= 0.619) {
       tier = 'Strong';
       tierColor = '#4a9eff';
-    } else if (total >= 0.536) { // median–p75 → displays ~53-61/100
+    } else if (total >= 0.536) {
       tier = 'Notable';
       tierColor = '#7ab8ff';
-    } else {                     // floor–median → displays ~38-53/100
+    } else {
       tier = 'Kindred';
       tierColor = '#99c0f0';
     }
 
+    parts.push('<div class="section-title">Connection Strength</div>');
     parts.push(
       '<div class="connection-strength">' +
         '<span class="connection-strength-dot" style="background:' + tierColor + '"></span>' +
@@ -1833,11 +1831,6 @@ function renderConnectionPane(sourceId, targetId) {
         '<span class="connection-strength-pct">' + normalized + ' / 100</span>' +
       '</div>'
     );
-  }
-
-  // Score bars if available
-  if (scores) {
-    parts.push('<div class="section-title">Connection Strength</div>');
     parts.push('<div class="connection-scores">');
 
     const bars = [
