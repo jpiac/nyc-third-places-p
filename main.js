@@ -1802,13 +1802,13 @@ function renderConnectionPane(sourceId, targetId) {
   if (scores && scores.total != null) {
     const total = scores.total;
 
-    // Normalize against the actual score distribution:
-    // p25 = 0.219 (mapped to ~0), p95 = 0.521 (mapped to ~100)
-    // Anything above p95 gets capped at 100.
-    const P_LOW  = 0.416; // p10
-    const P_HIGH = 0.718; // p95
+    const P_LOW    = 0.38;  // floor — displays as DISPLAY_LOW
+    const P_HIGH   = 0.963; // actual max
+    const DISPLAY_LOW  = 38;
+    const DISPLAY_HIGH = 100;
+
     const normalized = Math.round(
-      Math.min(100, Math.max(0, (total - P_LOW) / (P_HIGH - P_LOW) * 100))
+      DISPLAY_LOW + (total - P_LOW) / (P_HIGH - P_LOW) * (DISPLAY_HIGH - DISPLAY_LOW)
     );
 
     let tier, tierColor;
