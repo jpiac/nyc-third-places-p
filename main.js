@@ -1805,20 +1805,20 @@ function renderConnectionPane(sourceId, targetId) {
     // Normalize against the actual score distribution:
     // p25 = 0.219 (mapped to ~0), p95 = 0.521 (mapped to ~100)
     // Anything above p95 gets capped at 100.
-    const P_LOW = 0.219;
-    const P_HIGH = 0.521;
+    const P_LOW  = 0.416; // p10
+    const P_HIGH = 0.718; // p95
     const normalized = Math.round(
       Math.min(100, Math.max(0, (total - P_LOW) / (P_HIGH - P_LOW) * 100))
     );
 
     let tier, tierColor;
-    if (total >= 0.46) {
+    if (total >= 0.683) {
       tier = 'Exceptional Match';
       tierColor = '#00aaff';
-    } else if (total >= 0.42) {
+    } else if (total >= 0.619) {
       tier = 'Strong Match';
       tierColor = '#4a9eff';
-    } else if (total >= 0.33) {
+    } else if (total >= 0.536) {
       tier = 'Notable Match';
       tierColor = '#7ab8ff';
     } else {
