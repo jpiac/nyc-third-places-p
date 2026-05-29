@@ -1812,16 +1812,16 @@ function renderConnectionPane(sourceId, targetId) {
     );
 
     let tier, tierColor;
-    if (total >= 0.683) {
-      tier = 'Exceptional Match';
+    if (total >= 0.683) {        // p90+ → displays ~68-100/100
+      tier = 'Exceptional';
       tierColor = '#00aaff';
-    } else if (total >= 0.619) {
-      tier = 'Strong Match';
+    } else if (total >= 0.619) { // p75–p90 → displays ~61-68/100
+      tier = 'Strong';
       tierColor = '#4a9eff';
-    } else if (total >= 0.536) {
-      tier = 'Notable Match';
+    } else if (total >= 0.536) { // median–p75 → displays ~53-61/100
+      tier = 'Notable';
       tierColor = '#7ab8ff';
-    } else {
+    } else {                     // floor–median → displays ~38-53/100
       tier = 'Kindred';
       tierColor = '#99c0f0';
     }

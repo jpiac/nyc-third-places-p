@@ -14,8 +14,8 @@
   const HENRIETTA_ID = 'osm_6182279414';
   const HENRIETTA_NAME = 'Henrietta Hudson';
 
-  const CONNECTION_DEMO_SOURCE_ID = 'osm_2761570412'; // City Coffee Bar
-  const CONNECTION_DEMO_TARGET_ID = 'osm_10776706633'; // Käfē Bar & Bistro
+  const CONNECTION_DEMO_SOURCE_ID = 'osm_2761570412'; // City Coffee Bar, Manhattan
+  const CONNECTION_DEMO_TARGET_ID = 'osm_2605399150'; // Putnam's Pub & Cooker, Brooklyn
 
   const RAINBOW_ARC_COLORS = [
     [255, 0, 24],
@@ -2167,11 +2167,11 @@ function hideNarrativeConnectionCard() {
 
       // Fly to City Coffee Bar's location to frame the connection demo
       map.flyTo({
-        center: [-73.932, 40.747],
+        center: [-73.966, 40.746],
         zoom: 12,
         pitch: 50,
-        bearing:-45,
-        duration: 4000,
+        bearing: -15,
+        duration: 6000,
       });
 
       // After camera settles open the connection view and show the card
@@ -2181,7 +2181,7 @@ function hideNarrativeConnectionCard() {
         }
         showNarrativeConnectionCard(CONNECTION_DEMO_SOURCE_ID, CONNECTION_DEMO_TARGET_ID);
       }, 4000);
-      setTimeout(() => showNarrativeHint(), 5000);
+      setTimeout(() => showNarrativeHint(), 7000);
     }
     
 
