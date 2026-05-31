@@ -102,6 +102,7 @@
         <div class="search-results-list" id="search-results-list"></div>
       </div>
     </div>
+    <button id="discover-btn" onclick="toggleDiscoverPanel()">✦ Discover</button>
     <button id="replay-narrative" onclick="replayNarrative()">Replay Intro</button>
     <button id="about-btn" onclick="toggleAbout()">About</button>
     <button id="feedback-btn" onclick="openFeedbackModal()">Feedback</button>
@@ -110,6 +111,7 @@
     </button>
     <div id="hamburger-menu" class="hamburger-menu" aria-hidden="true">
       <button onclick="replayNarrative(); closeHamburger()">Replay Intro</button>
+      <button onclick="toggleDiscoverPanel(); closeHamburger()">✦ Discover</button>
       <button onclick="toggleAbout(); closeHamburger()">About</button>
       <button onclick="openFeedbackModal(); closeHamburger()">Feedback</button>
     </div>
@@ -172,7 +174,7 @@
       </div>
       <div class="narrative-step" data-step="3">
         <div class="narrative-text">
-          <p>Every place in the city has a soul.</p>
+          <p>Every place has a story to tell.</p>
           <blockquote>"The city fosters art and is art; the city creates the theater and is the theater."</blockquote>
           <cite>&mdash; Lewis Mumford, 1937</cite>
          </div>
@@ -184,12 +186,12 @@
       </div>
       <div class="narrative-step" data-step="5">
         <div class="narrative-text">
-          <p>Highlight shared identity to discover places for you.</p>
+          <p>Highlight shared identity to find places for your community.</p>
         </div>
       </div>
       <div class="narrative-step" data-step="6">
         <div class="narrative-text">
-          <p>Find kindred connections that permeate the city.</p>
+          <p>Discover kindred connections across the city.</p>
         </div>
       </div>
       <div class="narrative-step" data-step="7">
@@ -199,7 +201,7 @@
       </div>
       <div class="narrative-step" data-step="8">
         <div class="narrative-text">
-          <p>Select any arc to discover what draws two places together.</p>
+          <p>Select any arc to uncover what draws two places together.</p>
         </div>
       </div>
       <div class="narrative-step" data-step="9">

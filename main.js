@@ -391,6 +391,644 @@ async function loadData() {
   return res.json();
 }
 
+// ── Discover Panel Data ──────────────────────────────────────
+
+const STORIES = [
+  {
+    id: 'jackson-heights',
+    tag: 'Neighborhood',
+    title: 'Jackson Heights',
+    desc: 'One of the most ethnically diverse neighborhoods on earth, where Nepali tea houses, Colombian bakeries, and Bangladeshi sweet shops share the same block. The third places here don\'t just serve a community — they are the community.',
+    center: [-73.885, 40.752],
+    zoom: 15,
+    pitch: 55,
+    placeIds: [
+      'osm_6008918585',
+      'osm_2569998627',
+      'osm_5452641062',
+      'osm_5500029084',
+      'osm_5425889887',
+      'osm_7917128891',
+    ],
+  },
+  {
+    id: 'sunset-park',
+    tag: 'Neighborhood',
+    title: 'Sunset Park',
+    desc: 'Brooklyn\'s most quietly essential neighborhood. Chinese grocery stores, Mexican bakeries, and Polish delis operate side by side while families do laundry, pick up fresh bread, and drink coffee between shifts. The third places here are infrastructure.',
+    center: [-74.000, 40.645],
+    zoom: 15,
+    pitch: 55,
+    placeIds: [
+      'osm_5747118910',
+      'osm_8983987387',
+      'osm_4316449893',
+      'osm_10198298532',
+      'osm_2561887461',
+    ],
+  },
+  {
+    id: 'harlem',
+    tag: 'Neighborhood',
+    title: 'Harlem',
+    desc: 'A neighborhood that has always known what third places are for. Harlem\'s gathering spaces — churches, coffeehouses, delis — have held community through generations of change. They are where culture is made and where it is kept.',
+    center: [-73.945, 40.810],
+    zoom: 15,
+    pitch: 55,
+    placeIds: [
+      'osm_11879930429',
+      'osm_419367529',
+      'osm_1667407048',
+      'osm_9543863717',
+      'osm_1979669267',
+    ],
+  },
+  {
+    id: 'astoria',
+    tag: 'Neighborhood',
+    title: 'Astoria',
+    desc: 'Greek coffee houses, Middle Eastern delis, and Irish pubs that have outlasted every wave of gentrification. Astoria\'s third places carry the weight of multiple diasporas without making it feel like a burden.',
+    center: [-73.925, 40.775],
+    zoom: 15,
+    pitch: 55,
+    placeIds: [
+      'osm_5889476244',
+      'osm_5136293339',
+      'osm_3862796859',
+      'osm_11483301915',
+      'osm_5331099591',
+    ],
+  },
+  {
+    id: 'williamsburg',
+    tag: 'Neighborhood',
+    title: 'Williamsburg',
+    desc: 'The neighborhood that became a symbol of transformation still has places that resist it. A whiskey distillery bar, a breakfast spot that remembers your order, and a coffee shop that bans laptops on weekends — a different kind of third place for a different kind of community.',
+    center: [-73.955, 40.720],
+    zoom: 15,
+    pitch: 55,
+    placeIds: [
+      'osm_5994163586',
+      'osm_3070521516',
+      'osm_4848257936',
+      'osm_4334482651',
+    ],
+  },
+  {
+    id: 'brooklyn-queer',
+    tag: 'Thematic',
+    title: 'Brooklyn\'s Queer Corridor',
+    desc: 'From Park Slope\'s last lesbian bar to Bed-Stuy\'s Black and Caribbean queer nights, Brooklyn\'s LGBTQ+ third places form a corridor of belonging that runs from the waterfront to the outer neighborhoods. These spaces don\'t just welcome — they hold.',
+    center: [-73.960, 40.680],
+    zoom: 12,
+    pitch: 45,
+    placeIds: [
+      'osm_6379666403',
+      'osm_5182473281',
+      'osm_6709932501',
+      'osm_5209147840',
+      'osm_3154231939',
+      'osm_6573662300',
+      'osm_2192600106',
+      'osm_5184885238',
+    ],
+  },
+  {
+    id: 'bronx-anchors',
+    tag: 'Thematic',
+    title: 'The Bronx\'s Community Anchors',
+    desc: 'The Bronx has always built its own infrastructure. Churches that double as community centers, social facilities that hold the fraying edges of a neighborhood together — these are the places that show up when no one else does.',
+    center: [-73.900, 40.845],
+    zoom: 13,
+    pitch: 45,
+    placeIds: [
+      'osm_2858208176',
+      'osm_5424792524',
+      'osm_10089662141',
+      'osm_357612628',
+      'osm_357612616',
+      'osm_357612447',
+    ],
+  },
+  {
+    id: 'chinatown',
+    tag: 'Thematic',
+    title: 'Chinatown\'s Social Infrastructure',
+    desc: 'Manhattan\'s Chinatown has resisted displacement through density — packing more social life per block than almost anywhere in the city. Bakeries, bars, bathhouses, and karaoke lounges operating as a complete social ecosystem within a few square blocks.',
+    center: [-73.999, 40.717],
+    zoom: 15.5,
+    pitch: 60,
+    placeIds: [
+      'osm_11102160771',
+      'osm_3991220675',
+      'osm_6568734440',
+      'osm_12613104101',
+      'osm_2244743660',
+      'osm_373068398',
+      'osm_2563930380',
+    ],
+  },
+];
+
+const COMMUNITIES = [
+  { tag: 'lgbtq_welcoming', label: 'LGBTQ+ Welcoming', icon: '🌈', count: '1,521',
+    desc: 'Bars, cafés, community centers, and more that explicitly welcome LGBTQ+ people across all five boroughs.' },
+  { tag: 'dfs_women_owned', label: 'Women-Owned', icon: '♀', count: '750',
+    desc: 'Businesses and community spaces owned and operated by women — salons, cafés, bars, bakeries, and beyond.' },
+  { tag: 'dfs_asian_owned', label: 'Asian-Owned', icon: '✦', count: '165',
+    desc: 'Spaces rooted in Asian communities across the five boroughs, from tea houses to karaoke lounges.' },
+  { tag: 'dfs_transgender_safe', label: 'Transgender Safe Spaces', icon: '⚧', count: '1,089',
+    desc: 'Spaces explicitly identified as safe and affirming for transgender people.' },
+  { tag: 'nonprofit', label: 'Non-profits', icon: '★', count: '200+',
+    desc: 'Community organizations, NGOs, and non-profit spaces operating as gathering points.' },
+  { tag: 'dfs_indigenous_owned', label: 'Indigenous-Owned', icon: '◈', count: '4',
+    desc: 'The small but present number of Indigenous-owned third places in New York City.' },
+];
+
+const DISCOVERIES = [
+  {
+    tag: 'Strongest Bond',
+    sourceId: 'osm_7656695500',
+    targetId: 'osm_10828749043',
+    desc: 'The map\'s highest-scoring connection links two locations of the same tea chain. But 10,000 other connections prove shared soul runs deeper than shared branding.',
+    score: 0.963,
+  },
+  {
+    tag: 'Most Surprising',
+    sourceId: 'osm_6966903881',
+    targetId: 'osm_3578036493',
+    desc: 'A comedy basement and a trivia bar with celebrity mugshots on the walls. Neither is trying to be cool, which is exactly why they understand each other.',
+    score: 0.678,
+  },
+  {
+    tag: 'Longest Distance',
+    sourceId: 'osm_7779481132',
+    targetId: 'osm_2527373080',
+    desc: '33 miles of city between them. Both built on the same thing: a client who asks for their regular tech by name, books three weeks ahead, and won\'t go anywhere else.',
+    score: 0.555,
+    distance: '33 miles',
+  },
+  {
+    tag: 'Most Connected',
+    sourceId: 'osm_10803207999',
+    targetId: null,
+    desc: 'The café with the strongest web of connections in the dataset. Eight kindred places, average similarity 80/100. The laptop workers don\'t know they\'re sitting in the most socially networked room in Brooklyn.',
+    score: 0.809,
+    isSingle: true,
+  },
+  {
+    tag: 'Cross-Borough Libraries',
+    sourceId: 'osm_368050559',
+    targetId: 'osm_2858105393',
+    desc: 'Two branch libraries in different boroughs, 10 miles apart, running the same unspoken program: homework help, air conditioning, and a staff that remembers your name.',
+    score: 0.483,
+  },
+  {
+    tag: 'Cross-Community',
+    sourceId: 'osm_7161278397',
+    targetId: 'osm_2724057631',
+    desc: 'A Black-owned Brooklyn brunch spot and a Manhattan sports pub separated by 10 miles and everything else. The algorithm found them anyway: same covenant, different crowd.',
+    score: 0.624,
+  },
+  {
+    tag: 'Cross-Borough',
+    sourceId: 'osm_5721476514',
+    targetId: 'osm_6061610718',
+    desc: 'A Sunnyside soccer pub and a Tribeca sports bar. The regulars at both measure loyalty in decades, not visits.',
+    score: 0.693,
+  },
+  {
+    tag: 'Queer ↔ Agave',
+    sourceId: 'osm_6389664887',
+    targetId: 'osm_2550604114',
+    desc: 'Two queer-welcoming agave bars across the river. Same crowd, same energy, same bartenders who know your order — 4 miles apart.',
+    score: 0.653,
+  },
+];
+
+// ── Discover Panel Logic ─────────────────────────────────────
+
+let discoverPanelOpen = false;
+let activeStoryId = null;
+let activeCommunityTag = null;
+let communityBoroughFilter = 'all';
+let communityTypeFilter = 'all';
+
+// `sidebarFromDiscover` remembers which Discover view to return to when a
+// place pane is opened from Discover. Values: null | 'home' | 'story:<id>' |
+// 'community:<tag>'. `connectionFromDiscover` flags a connection pane opened
+// directly from a discovery card (vs. one opened from an arc click).
+let sidebarFromDiscover = null;
+let connectionFromDiscover = false;
+
+function clearMapSelectionForDiscover() {
+  if (selectedId !== null && map) {
+    try {
+      map.setFeatureState(
+        { source: 'places', sourceLayer: 'nyc_places', id: selectedId },
+        { selected: false }
+      );
+    } catch (e) {}
+    selectedId = null;
+  }
+  selectedPlaceId = null;
+  if (map) {
+    for (const id of connectedIds) {
+      try {
+        map.setFeatureState(
+          { source: 'places', sourceLayer: 'nyc_places', id },
+          { connected: false }
+        );
+      } catch (e) {}
+    }
+  }
+  connectedIds.clear();
+  clearKindredLines();
+  clearSecondTierLines();
+  clearBuildingHighlight();
+  connectionView = false;
+  connectionSourceId = null;
+  connectionTargetId = null;
+  if (map) {
+    unfadeMain();
+    try { map.setPaintProperty('faded-overlay', 'background-opacity', 0, { duration: 300 }); } catch (e) {}
+  }
+}
+
+function openSidebarShell() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return false;
+  const wasOpen = sidebar.classList.contains('is-open');
+  sidebar.classList.remove('is-expanded');
+  sidebar.style.transform = '';
+  sidebar.classList.add('is-open');
+  sidebar.setAttribute('aria-hidden', 'false');
+  if (!wasOpen && window.innerWidth > 640 && map) {
+    map.easeTo({ padding: { right: 440 }, duration: 250 });
+  }
+  return wasOpen;
+}
+
+function toggleDiscoverPanel() {
+  if (discoverPanelOpen) {
+    closeSidebar();
+  } else {
+    openDiscoverPanel();
+  }
+}
+window.toggleDiscoverPanel = toggleDiscoverPanel;
+
+function openDiscoverPanel() {
+  if (activeFilterTag) exitFilterMode(false);
+  clearMapSelectionForDiscover();
+  activeStoryId = null;
+  activeCommunityTag = null;
+  sidebarFromDiscover = null;
+  connectionFromDiscover = false;
+  discoverPanelOpen = true;
+  openSidebarShell();
+  renderDiscoverContent();
+}
+window.openDiscoverPanel = openDiscoverPanel;
+
+function returnToDiscover() {
+  const prev = sidebarFromDiscover;
+  const targetCommunityTag = (prev && prev.startsWith('community:'))
+    ? prev.slice('community:'.length)
+    : null;
+  // If we're heading back to the same community detail the filter is already
+  // set for, keep it active to avoid a clear/re-enter flicker.
+  if (activeFilterTag && activeFilterTag !== targetCommunityTag) {
+    exitFilterMode(false);
+  }
+  clearMapSelectionForDiscover();
+  sidebarFromDiscover = null;
+  connectionFromDiscover = false;
+  if (prev && prev.startsWith('story:')) {
+    activeStoryId = prev.slice('story:'.length);
+    activeCommunityTag = null;
+  } else if (targetCommunityTag) {
+    activeCommunityTag = targetCommunityTag;
+    activeStoryId = null;
+  } else {
+    activeStoryId = null;
+    activeCommunityTag = null;
+  }
+  discoverPanelOpen = true;
+  openSidebarShell();
+  renderDiscoverContent();
+}
+window.returnToDiscover = returnToDiscover;
+
+function renderDiscoverContent() {
+  const content = document.getElementById('sidebar-content');
+  if (!content) return;
+  if (activeStoryId) { renderStoryDetail(activeStoryId); return; }
+  if (activeCommunityTag) { renderCommunityDetail(activeCommunityTag); return; }
+  renderDiscoverHome();
+}
+
+function renderDiscoverHome() {
+  const content = document.getElementById('sidebar-content');
+  if (!content) return;
+  discoverPanelOpen = true;
+
+  const storyCards = STORIES.map(s => {
+    const dots = s.placeIds.slice(0, 5).map(id => {
+      const p = featuresById.get(id);
+      if (!p) return '';
+      const color = COLOR_BY_TYPE[p.osm_type] || COLOR_DEFAULT;
+      return '<span class="story-card-dot" style="background:' + color + '"></span>';
+    }).join('');
+    return (
+      '<button class="story-card" data-story-id="' + s.id + '">' +
+        '<div class="story-card-tag">' + escapeHtml(s.tag) + '</div>' +
+        '<div class="story-card-title">' + escapeHtml(s.title) + '</div>' +
+        '<div class="story-card-desc">' + escapeHtml(s.desc.slice(0, 100)) + '…</div>' +
+        '<div class="story-card-places">' + dots + '</div>' +
+        '<div class="story-card-footer">Explore →</div>' +
+      '</button>'
+    );
+  }).join('');
+
+  const communityCards = COMMUNITIES.map(c => (
+    '<button class="community-card" data-community-tag="' + escapeHtml(c.tag) + '">' +
+      '<div class="community-card-icon">' + c.icon + '</div>' +
+      '<div class="community-card-label">' + escapeHtml(c.label) + '</div>' +
+      '<div class="community-card-count">' + escapeHtml(c.count) + ' places</div>' +
+    '</button>'
+  )).join('');
+
+  const P_LOW = 0.380, P_HIGH = 0.963, D_LOW = 38, D_HIGH = 100;
+  const discoveryCards = DISCOVERIES.map((d, i) => {
+    const source = featuresById.get(d.sourceId);
+    const target = d.targetId ? featuresById.get(d.targetId) : null;
+    if (!source) return '';
+    const sourceColor = COLOR_BY_TYPE[source.osm_type] || COLOR_DEFAULT;
+    const targetColor = target ? (COLOR_BY_TYPE[target.osm_type] || COLOR_DEFAULT) : null;
+    const normalized = Math.round(D_LOW + (d.score - P_LOW) / (P_HIGH - P_LOW) * (D_HIGH - D_LOW));
+
+    const placesHtml = d.isSingle
+      ? '<span class="discovery-card-dot" style="background:' + sourceColor + '"></span>' +
+        '<span class="discovery-card-place-name">' + escapeHtml(source.name) + '</span>'
+      : '<span class="discovery-card-dot" style="background:' + sourceColor + '"></span>' +
+        '<span class="discovery-card-place-name">' + escapeHtml(source.name) + '</span>' +
+        '<span class="discovery-card-arrow">↔</span>' +
+        '<span class="discovery-card-dot" style="background:' + targetColor + '"></span>' +
+        '<span class="discovery-card-place-name">' + escapeHtml(target ? target.name : '') + '</span>';
+
+    return (
+      '<button class="discovery-card" data-discovery-index="' + i + '">' +
+        '<div class="discovery-card-tag">' + escapeHtml(d.tag) + '</div>' +
+        '<div class="discovery-card-places">' + placesHtml + '</div>' +
+        '<div class="discovery-card-desc">' + escapeHtml(d.desc) + '</div>' +
+        '<div class="discovery-card-score">' + normalized + ' / 100' +
+          (d.distance ? ' · ' + escapeHtml(d.distance) : '') +
+        '</div>' +
+      '</button>'
+    );
+  }).join('');
+
+  content.innerHTML =
+    '<div class="discover-header">' +
+      '<span class="discover-title">Discover NYC\'s Third Places</span>' +
+    '</div>' +
+    '<div class="discover-section-title">Stories</div>' +
+    storyCards +
+    '<div class="discover-section-title">Community</div>' +
+    '<div class="community-grid">' + communityCards + '</div>' +
+    '<div class="discover-section-title">Connections</div>' +
+    discoveryCards;
+  content.scrollTop = 0;
+
+  content.querySelectorAll('.story-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeStoryId = btn.getAttribute('data-story-id');
+      renderStoryDetail(activeStoryId);
+    });
+  });
+
+  content.querySelectorAll('.community-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeCommunityTag = btn.getAttribute('data-community-tag');
+      communityBoroughFilter = 'all';
+      communityTypeFilter = 'all';
+      renderCommunityDetail(activeCommunityTag);
+    });
+  });
+
+  content.querySelectorAll('.discovery-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = parseInt(btn.getAttribute('data-discovery-index'));
+      const d = DISCOVERIES[i];
+      if (!d) return;
+      if (d.isSingle) {
+        const place = featuresById.get(d.sourceId);
+        if (place && Array.isArray(place.coordinates)) {
+          sidebarFromDiscover = 'home';
+          discoverPanelOpen = false;
+          map.flyTo({ center: place.coordinates, zoom: 15, pitch: 55, duration: 2000 });
+          setTimeout(() => openSidebar(d.sourceId), 2200);
+        }
+      } else {
+        const source = featuresById.get(d.sourceId);
+        const target = featuresById.get(d.targetId);
+        if (source && target) {
+          const center = [
+            (source.coordinates[0] + target.coordinates[0]) / 2,
+            (source.coordinates[1] + target.coordinates[1]) / 2,
+          ];
+          sidebarFromDiscover = 'home';
+          connectionFromDiscover = true;
+          discoverPanelOpen = false;
+          map.flyTo({ center, zoom: 11.5, pitch: 50, duration: 2000 });
+          setTimeout(() => openConnectionView(d.sourceId, d.targetId), 2200);
+        }
+      }
+    });
+  });
+}
+
+function renderStoryDetail(storyId) {
+  const story = STORIES.find(s => s.id === storyId);
+  if (!story) return;
+  const content = document.getElementById('sidebar-content');
+  if (!content) return;
+  discoverPanelOpen = true;
+  activeStoryId = storyId;
+
+  if (map) {
+    map.flyTo({ center: story.center, zoom: story.zoom, pitch: story.pitch, duration: 2500 });
+  }
+
+  const placeItems = story.placeIds.map(id => {
+    const p = featuresById.get(id);
+    if (!p) return '';
+    const color = COLOR_BY_TYPE[p.osm_type] || COLOR_DEFAULT;
+    const soulSnippet = p.soul_summary
+      ? p.soul_summary.slice(0, 90) + (p.soul_summary.length > 90 ? '…' : '')
+      : '';
+    return (
+      '<button class="story-place-item" data-place-id="' + escapeHtml(id) + '">' +
+        '<span class="story-place-dot" style="background:' + color + '"></span>' +
+        '<div class="story-place-info">' +
+          '<div class="story-place-name">' + escapeHtml(p.name || '') + '</div>' +
+          '<div class="story-place-type">' + escapeHtml(formatOsmType(p.osm_type)) + '</div>' +
+          '<div class="story-place-soul">' + escapeHtml(soulSnippet) + '</div>' +
+        '</div>' +
+      '</button>'
+    );
+  }).join('');
+
+  content.innerHTML =
+    '<div class="story-active-panel">' +
+      '<button class="story-back-btn" id="story-back-btn">← Back to Discover</button>' +
+      '<div class="story-card-tag">' + escapeHtml(story.tag) + '</div>' +
+      '<div class="story-active-title">' + escapeHtml(story.title) + '</div>' +
+      '<div class="story-active-desc">' + escapeHtml(story.desc) + '</div>' +
+      '<div class="story-place-list">' + placeItems + '</div>' +
+    '</div>';
+  content.scrollTop = 0;
+
+  document.getElementById('story-back-btn').addEventListener('click', () => {
+    activeStoryId = null;
+    renderDiscoverHome();
+  });
+
+  const storyKey = 'story:' + storyId;
+  content.querySelectorAll('.story-place-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-place-id');
+      const place = featuresById.get(id);
+      if (place && Array.isArray(place.coordinates)) {
+        sidebarFromDiscover = storyKey;
+        discoverPanelOpen = false;
+        map.flyTo({ center: place.coordinates, zoom: 16, pitch: 65, duration: 1500 });
+        setTimeout(() => openSidebar(id), 1700);
+      }
+    });
+  });
+}
+
+function renderCommunityDetail(tagKey) {
+  const community = COMMUNITIES.find(c => c.tag === tagKey);
+  if (!community) return;
+  const content = document.getElementById('sidebar-content');
+  if (!content) return;
+  discoverPanelOpen = true;
+  activeCommunityTag = tagKey;
+
+  // enterFilterMode toggles off when called with the same tag, so guard it.
+  if (activeFilterTag !== tagKey) {
+    enterFilterMode(tagKey, community.label);
+  }
+
+  const allPlaces = [];
+  for (const place of featuresById.values()) {
+    if (matchesFilterTag(place, tagKey)) allPlaces.push(place);
+  }
+
+  const boroughCounts = {};
+  for (const p of allPlaces) {
+    const b = p.borough || 'Unknown';
+    boroughCounts[b] = (boroughCounts[b] || 0) + 1;
+  }
+  const boroughs = ['all', ...Object.keys(boroughCounts).sort()];
+  const typeSet = new Set(allPlaces.map(p => p.osm_type).filter(Boolean));
+
+  function getFiltered() {
+    let filtered = allPlaces;
+    if (communityBoroughFilter !== 'all') {
+      filtered = filtered.filter(p => p.borough === communityBoroughFilter);
+    }
+    if (communityTypeFilter !== 'all') {
+      filtered = filtered.filter(p => p.osm_type === communityTypeFilter);
+    }
+    return filtered.sort((a, b) => (b.review_count || 0) - (a.review_count || 0)).slice(0, 80);
+  }
+
+  function rebuild() {
+    const filtered = getFiltered();
+    const placeItems = filtered.map(p => {
+      const color = COLOR_BY_TYPE[p.osm_type] || COLOR_DEFAULT;
+      return (
+        '<button class="community-place-item" data-place-id="' + escapeHtml(p.id) + '">' +
+          '<span class="community-place-dot" style="background:' + color + '"></span>' +
+          '<span class="community-place-name">' + escapeHtml(p.name || '') + '</span>' +
+          '<span class="community-place-meta">' +
+            escapeHtml(formatOsmType(p.osm_type)) +
+            (p.borough ? ' · ' + escapeHtml(p.borough) : '') +
+          '</span>' +
+        '</button>'
+      );
+    }).join('');
+
+    const boroughPills = boroughs.map(b => {
+      const label = b === 'all' ? 'All' : b;
+      const count = b === 'all' ? allPlaces.length : (boroughCounts[b] || 0);
+      const active = communityBoroughFilter === b ? ' is-active' : '';
+      return '<button class="community-borough-pill' + active + '" data-borough="' + escapeHtml(b) + '">' +
+        escapeHtml(label) + ' (' + count + ')' +
+      '</button>';
+    }).join('');
+
+    const typeOpts = ['<option value="all">All types</option>'];
+    for (const t of Array.from(typeSet).sort()) {
+      const sel = communityTypeFilter === t ? ' selected' : '';
+      typeOpts.push('<option value="' + escapeHtml(t) + '"' + sel + '>' + escapeHtml(formatOsmType(t)) + '</option>');
+    }
+
+    content.innerHTML =
+      '<div class="community-active-panel">' +
+        '<button class="story-back-btn" id="community-back-btn">← Back to Discover</button>' +
+        '<div class="community-active-header">' +
+          '<div class="community-active-title">' + community.icon + ' ' + escapeHtml(community.label) + '</div>' +
+          '<div class="community-active-desc">' + escapeHtml(community.desc) + '</div>' +
+        '</div>' +
+        '<div class="community-borough-breakdown">' + boroughPills + '</div>' +
+        '<select class="community-type-filter" id="community-type-filter">' + typeOpts.join('') + '</select>' +
+        '<div class="community-place-list">' + placeItems + '</div>' +
+      '</div>';
+
+    document.getElementById('community-back-btn').addEventListener('click', () => {
+      activeCommunityTag = null;
+      exitFilterMode(false);
+      renderDiscoverHome();
+    });
+
+    content.querySelectorAll('.community-borough-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        communityBoroughFilter = btn.getAttribute('data-borough');
+        rebuild();
+      });
+    });
+
+    const typeSelect = document.getElementById('community-type-filter');
+    if (typeSelect) {
+      typeSelect.addEventListener('change', e => {
+        communityTypeFilter = e.target.value;
+        rebuild();
+      });
+    }
+
+    const communityKey = 'community:' + tagKey;
+    content.querySelectorAll('.community-place-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-place-id');
+        const place = featuresById.get(id);
+        if (place && Array.isArray(place.coordinates)) {
+          sidebarFromDiscover = communityKey;
+          discoverPanelOpen = false;
+          map.flyTo({ center: place.coordinates, zoom: 16, pitch: 65, duration: 1500 });
+          setTimeout(() => openSidebar(id), 1700);
+        }
+      });
+    });
+  }
+
+  rebuild();
+}
+
 function buildGeoJSON(raw) {
   const features = [];
   (raw.features || []).forEach((p, i) => {
@@ -812,6 +1450,16 @@ function drawKindredLines(placeId) {
   }
   clearSecondTierLines();
 
+  // Reset opacity transition to 0 so per-frame paint updates apply instantly.
+  // The animation tail sets a 400ms transition (for any subsequent external
+  // state changes), but if that lingers when the next animation starts, every
+  // per-frame setPaintProperty call queues a fresh 400ms Mapbox transition,
+  // and Mapbox transition bookkeeping accumulates across interactions.
+  try {
+    map.setPaintProperty('places-circles-connected-overlay', 'circle-opacity-transition', { duration: 0, delay: 0 });
+    map.setPaintProperty('places-circles-connected-overlay', 'circle-stroke-width-transition', { duration: 0, delay: 0 });
+  } catch (e) {}
+
   const ids = Array.isArray(source.similarity_ids)
     ? source.similarity_ids.slice(0, TOP_KINDRED)
     : [];
@@ -845,35 +1493,39 @@ function drawKindredLines(placeId) {
   const startTime = performance.now();
   let lastPaintUpdate = 0;
 
-  const arcPaths = segments.map((seg) => ({
-    points: sampleArc(seg.from, seg.to, ARC_HEIGHT, ARC_POINTS),
-    sourceColor: seg.sourceColor,
-    targetColor: seg.targetColor,
-    sourceId: seg.sourceId,
-    targetId: seg.targetId,
-  }));
+  // Pre-build immutable line entries per arc so the frame loop just
+  // references them by index instead of recomputing colors, slicing
+  // points, and allocating new path arrays every frame.
+  const arcPaths = segments.map((seg) => {
+    const points = sampleArc(seg.from, seg.to, ARC_HEIGHT, ARC_POINTS);
+    const lineEntries = new Array(points.length - 1);
+    for (let i = 0; i < points.length - 1; i++) {
+      const segT = i / (ARC_POINTS - 1);
+      lineEntries[i] = {
+        path: [points[i], points[i + 1]],
+        color: interpolateColorRgb(seg.sourceColor, seg.targetColor, segT),
+        sourceId: seg.sourceId,
+        targetId: seg.targetId,
+      };
+    }
+    return { totalSegments: lineEntries.length, lineEntries };
+  });
 
   function frame(now) {
     const t = Math.min(1, (now - startTime) / DURATION);
     const eased = 1 - Math.pow(1 - t, 2);
+    const visibleCount = t >= 1
+      ? ARC_POINTS
+      : Math.max(2, Math.floor(eased * ARC_POINTS));
 
     const lineData = [];
-    arcPaths.forEach((arc) => {
-      const visibleCount = t >= 1
-        ? arc.points.length
-        : Math.max(2, Math.floor(eased * ARC_POINTS));
-      const visiblePoints = arc.points.slice(0, visibleCount);
-      for (let i = 0; i < visiblePoints.length - 1; i++) {
-        const segT = i / (ARC_POINTS - 1);
-        const color = interpolateColorRgb(arc.sourceColor, arc.targetColor, segT);
-        lineData.push({
-          path: [visiblePoints[i], visiblePoints[i + 1]],
-          color,
-          sourceId: arc.sourceId,
-          targetId: arc.targetId,
-        });
+    for (let a = 0; a < arcPaths.length; a++) {
+      const arc = arcPaths[a];
+      const limit = Math.min(visibleCount - 1, arc.totalSegments);
+      for (let i = 0; i < limit; i++) {
+        lineData.push(arc.lineEntries[i]);
       }
-    });
+    }
     firstTierLineData = lineData;
     renderArcs();
 
@@ -969,18 +1621,29 @@ function drawSecondTierLines(firstTierIds) {
   const START_DELAY_MS = 50;
   const PAINT_THROTTLE_MS = 33;
 
-  const arcPaths = segments.map((seg) => ({
-    points: sampleArc(seg.from, seg.to, ARC_HEIGHT, ARC_POINTS),
-    sourceColor: seg.sourceColor,
-    targetColor: seg.targetColor,
-    sourceId: seg.sourceId,
-    targetId: seg.targetId,
-  }));
+  // Pre-build immutable line entries per arc so the frame loop just
+  // references them by index — no per-frame slicing, color interpolation,
+  // or path-array allocation.
+  const arcPaths = segments.map((seg) => {
+    const points = sampleArc(seg.from, seg.to, ARC_HEIGHT, ARC_POINTS);
+    const lineEntries = new Array(points.length - 1);
+    for (let i = 0; i < points.length - 1; i++) {
+      const segT = i / (ARC_POINTS - 1);
+      lineEntries[i] = {
+        path: [points[i], points[i + 1]],
+        color: interpolateColorRgb(seg.sourceColor, seg.targetColor, segT),
+        sourceId: seg.sourceId,
+        targetId: seg.targetId,
+      };
+    }
+    return { totalSegments: lineEntries.length, lineEntries };
+  });
 
   secondTierDelayTimer = setTimeout(() => {
     secondTierDelayTimer = null;
     try {
       map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity-transition', { duration: 0, delay: 0 });
+      map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width-transition', { duration: 0, delay: 0 });
       map.setPaintProperty('places-circles-second-tier-overlay', 'circle-opacity', 0);
       map.setPaintProperty('places-circles-second-tier-overlay', 'circle-stroke-width', 0);
     } catch (e) {}
@@ -996,24 +1659,18 @@ function drawSecondTierLines(firstTierIds) {
     function frame(now) {
       const t = Math.min(1, (now - startTime) / DURATION);
       const eased = 1 - Math.pow(1 - t, 2);
+      const visibleCount = t >= 1
+        ? ARC_POINTS
+        : Math.max(2, Math.floor(eased * ARC_POINTS));
 
       const lineData = [];
-      arcPaths.forEach((arc) => {
-        const visibleCount = t >= 1
-          ? arc.points.length
-          : Math.max(2, Math.floor(eased * ARC_POINTS));
-        const visiblePoints = arc.points.slice(0, visibleCount);
-        for (let i = 0; i < visiblePoints.length - 1; i++) {
-          const segT = i / (ARC_POINTS - 1);
-          const color = interpolateColorRgb(arc.sourceColor, arc.targetColor, segT);
-          lineData.push({
-            path: [visiblePoints[i], visiblePoints[i + 1]],
-            color,
-            sourceId: arc.sourceId,
-            targetId: arc.targetId,
-          });
+      for (let a = 0; a < arcPaths.length; a++) {
+        const arc = arcPaths[a];
+        const limit = Math.min(visibleCount - 1, arc.totalSegments);
+        for (let i = 0; i < limit; i++) {
+          lineData.push(arc.lineEntries[i]);
         }
-      });
+      }
       secondTierLineData = lineData;
       renderArcs();
 
@@ -1559,13 +2216,19 @@ function unfadeMain() {
   unfadeMainAnimFrame = requestAnimationFrame(step);
 }
 
+const buildingCoordCache = new Map();
+
 async function getBuildingCoordinate(place) {
+  if (buildingCoordCache.has(place.id)) {
+    return buildingCoordCache.get(place.id);
+  }
   const tags = place.osm_tags || {};
   const num = tags['addr:housenumber'];
   const street = tags['addr:street'];
   const city = tags['addr:city'] || 'New York';
   const state = tags['addr:state'] || 'NY';
 
+  let result = place.coordinates;
   if (num && street) {
     const query = encodeURIComponent(`${num} ${street}, ${city}, ${state}`);
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json` +
@@ -1575,11 +2238,12 @@ async function getBuildingCoordinate(place) {
       const res = await fetch(url);
       const json = await res.json();
       if (json.features && json.features.length > 0) {
-        return json.features[0].center;
+        result = json.features[0].center;
       }
     } catch (e) {}
   }
-  return place.coordinates;
+  buildingCoordCache.set(place.id, result);
+  return result;
 }
 
 let buildingHighlightTimer = null;
@@ -1598,10 +2262,13 @@ async function highlightBuildingAtPlace(place) {
   const color = COLOR_BY_TYPE[place.osm_type] || COLOR_DEFAULT;
   try { map.setConfigProperty('basemap', 'colorBuildingSelect', color); } catch (e) {}
 
+  const placeIdAtStart = place.id;
   const coord = await getBuildingCoordinate(place);
+  // Skip if a newer selection won the race during the async wait.
+  if (selectedPlaceId !== placeIdAtStart) return;
 
   const doQuery = () => {
-    if (!selectedPlaceId) return;
+    if (selectedPlaceId !== placeIdAtStart) return;
 
     const savedPitch = map.getPitch();
     const savedBearing = map.getBearing();
@@ -1971,11 +2638,17 @@ function openConnectionView(sourceId, targetId) {
   content.innerHTML = renderConnectionPane(resolvedSource, resolvedTarget);
   content.scrollTop = 0;
 
-  // Wire back button
+  // Wire back button — from a discovery card, return to Discover home;
+  // otherwise return to the place pane that the user came from.
   const backBtn = document.getElementById('connection-back-btn');
   if (backBtn) {
-    backBtn.addEventListener('click', closeConnectionView);
+    if (connectionFromDiscover) {
+      backBtn.addEventListener('click', returnToDiscover);
+    } else {
+      backBtn.addEventListener('click', closeConnectionView);
+    }
   }
+  discoverPanelOpen = false;
 }
 
 window.openConnectionView = openConnectionView;
@@ -1983,6 +2656,7 @@ window.openConnectionView = openConnectionView;
 function closeConnectionView() {
   if (!connectionView) return;
   connectionView = false;
+  connectionFromDiscover = false;
   const prevSourceId = connectionSourceId;
   connectionSourceId = null;
   connectionTargetId = null;
@@ -2003,6 +2677,9 @@ function openSidebar(placeId) {
     unfadeMainAnimFrame = null;
   }
 
+  discoverPanelOpen = false;
+  connectionFromDiscover = false;
+
   setSelected(placeId);
   if (activeFilterTag) {
     clearKindredLines();
@@ -2013,6 +2690,11 @@ function openSidebar(placeId) {
 
   const badgeColor = COLOR_BY_TYPE[place.osm_type] || COLOR_DEFAULT;
   const parts = [];
+  if (sidebarFromDiscover) {
+    parts.push(
+      '<button class="discover-back-btn" id="discover-back-btn">← Back to Discover</button>'
+    );
+  }
   parts.push(
    '<div class="place-type-badge" style="background:' + badgeColor + '">' +
   escapeHtml(formatOsmType(place.osm_type || '')) + '</div>'
@@ -2055,6 +2737,11 @@ function openSidebar(placeId) {
 
   if (!wasOpen && window.innerWidth > 640) {
     map.easeTo({ padding: { right: 440 }, duration: 250 });
+  }
+
+  const discoverBackBtn = content.querySelector('#discover-back-btn');
+  if (discoverBackBtn) {
+    discoverBackBtn.addEventListener('click', returnToDiscover);
   }
 
   const tierBtn = content.querySelector('#second-tier-toggle');
@@ -2100,6 +2787,14 @@ function closeSidebar() {
   if (activeFilterTag) {
     exitFilterMode(false);
   }
+  discoverPanelOpen = false;
+  sidebarFromDiscover = null;
+  connectionFromDiscover = false;
+  activeStoryId = null;
+  activeCommunityTag = null;
+  connectionView = false;
+  connectionSourceId = null;
+  connectionTargetId = null;
   const sidebar = document.getElementById('sidebar');
   const wasOpen = sidebar.classList.contains('is-open');
   sidebar.classList.remove('is-expanded');
@@ -2491,6 +3186,12 @@ async function initMap() {
   }
   const geojson = buildGeoJSON(raw);
   hideLoading();
+
+  let narrativeAlreadySeen = false;
+  try { narrativeAlreadySeen = localStorage.getItem('narrative_seen') === 'true'; } catch (e) {}
+  if (narrativeAlreadySeen) {
+    setTimeout(() => openDiscoverPanel(), 800);
+  }
 
   window.setSelected = setSelected;
   window.featuresById = featuresById;
@@ -2958,6 +3659,7 @@ function initArcInteraction() {
     const picked = deckInstance.pickObject({ x, y, radius: 6 });
 
     if (picked && picked.object && picked.object.sourceId && picked.object.targetId) {
+      connectionFromDiscover = false;
       openConnectionView(picked.object.sourceId, picked.object.targetId);
       // Stop the event so Mapbox's own click handler doesn't also fire
       e.stopImmediatePropagation();
@@ -2992,8 +3694,6 @@ function initUI() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSidebar();
   });
-  document.getElementById('sidebar-content').innerHTML =
-    '<p class="empty-state">Click any point on the map to explore a place.</p>';
   const aboutClose = document.getElementById('about-close');
   if (aboutClose) aboutClose.addEventListener('click', toggleAbout);
 }

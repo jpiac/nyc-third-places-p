@@ -2244,6 +2244,12 @@ function hideNarrativeConnectionCard() {
       duration: 5000,
     });
 
+    setTimeout(() => {
+      if (typeof window.openDiscoverPanel === 'function') {
+        window.openDiscoverPanel();
+      }
+    }, 1200);
+
     clearConstellationTimers();
     hideConstellationLayer();
 
