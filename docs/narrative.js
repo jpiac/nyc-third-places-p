@@ -1788,6 +1788,83 @@ function hideNarrativeConnectionCard() {
     setTimeout(() => { try { el.remove(); } catch (e) {} }, 550);
   }
 
+  // Beat 9 discover preview — three small stacked cards on the right
+  // showcasing one story, one community, and one connection from the
+  // post-narrative Discover panel.
+  function showNarrativeDiscoverCards() {
+    const fb = window.featuresById;
+    const colorByType = window.COLOR_BY_TYPE || {};
+    const defaultColor = window.COLOR_DEFAULT || '#888888';
+    const safe = (s) => String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    // Story preview — Jackson Heights from STORIES in main.js.
+    const storyPlaceIds = [
+      'osm_6008918585', 'osm_2569998627', 'osm_5452641062',
+      'osm_5500029084', 'osm_5425889887',
+    ];
+    const storyDots = storyPlaceIds.map((id) => {
+      const p = fb && fb.get(id);
+      if (!p) return '';
+      const color = colorByType[p.osm_type] || defaultColor;
+      return '<span class="narrative-discover-card-dot" style="background:' + color + '"></span>';
+    }).join('');
+
+    // Connection preview — The Stand ↔ Little Rebel from DISCOVERIES.
+    const sourcePlace = fb && fb.get('osm_6966903881');
+    const targetPlace = fb && fb.get('osm_3578036493');
+    const sourceColor = sourcePlace ? (colorByType[sourcePlace.osm_type] || defaultColor) : defaultColor;
+    const targetColor = targetPlace ? (colorByType[targetPlace.osm_type] || defaultColor) : defaultColor;
+    const sourceName = sourcePlace ? sourcePlace.name : 'The Stand';
+    const targetName = targetPlace ? targetPlace.name : 'Little Rebel';
+
+    let container = document.getElementById('narrative-discover-cards');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'narrative-discover-cards';
+      document.body.appendChild(container);
+    }
+
+    container.innerHTML =
+      '<div class="narrative-discover-card">' +
+        '<div class="narrative-discover-card-label">Story</div>' +
+        '<div class="narrative-discover-card-title">Jackson Heights</div>' +
+        '<div class="narrative-discover-card-dots">' + storyDots + '</div>' +
+        '<div class="narrative-discover-card-body">One of the most ethnically diverse neighborhoods on earth, where Nepali tea houses, Colombian bakeries, and Bangladeshi sweet shops share the same block. The third places here don’t just serve a community — they are the community.</div>' +
+      '</div>' +
+      '<div class="narrative-discover-card">' +
+        '<div class="narrative-discover-card-label">Community</div>' +
+        '<div class="narrative-discover-card-row">' +
+          '<span class="narrative-discover-card-icon">🌈</span>' +
+          '<span class="narrative-discover-card-title">LGBTQ+ Welcoming</span>' +
+        '</div>' +
+        '<div class="narrative-discover-card-count">1,521 places</div>' +
+        '<div class="narrative-discover-card-body">Bars, cafés, community centers, and more that explicitly welcome LGBTQ+ people across all five boroughs.</div>' +
+      '</div>' +
+      '<div class="narrative-discover-card">' +
+        '<div class="narrative-discover-card-label">Connection</div>' +
+        '<div class="narrative-discover-card-row">' +
+          '<span class="narrative-discover-card-dot" style="background:' + sourceColor + '"></span>' +
+          '<span class="narrative-discover-card-place">' + safe(sourceName) + '</span>' +
+          '<span class="narrative-discover-card-arrow">↔</span>' +
+          '<span class="narrative-discover-card-dot" style="background:' + targetColor + '"></span>' +
+          '<span class="narrative-discover-card-place">' + safe(targetName) + '</span>' +
+        '</div>' +
+        '<div class="narrative-discover-card-body">A comedy basement and a trivia bar with celebrity mugshots on the walls. Neither is trying to be cool, which is exactly why they understand each other.</div>' +
+      '</div>';
+
+    void container.offsetWidth;
+    container.classList.add('is-visible');
+  }
+
+  function hideNarrativeDiscoverCards() {
+    const container = document.getElementById('narrative-discover-cards');
+    if (!container) return;
+    container.classList.remove('is-visible');
+    setTimeout(() => { try { container.remove(); } catch (e) {} }, 450);
+  }
+
   function clearAllNarrativeBeatTimers() {
     if (henriettaHighlightTimer) { clearTimeout(henriettaHighlightTimer); henriettaHighlightTimer = null; }
     if (henriettaKindredCardTimer) { clearTimeout(henriettaKindredCardTimer); henriettaKindredCardTimer = null; }
@@ -2016,7 +2093,7 @@ function hideNarrativeConnectionCard() {
         bearing: 0,
         duration: 3000,
       });
-      setTimeout(() => showNarrativeHint(), 4000);
+      setTimeout(() => showNarrativeHint(), 3000);
     }
 
     else if (n === 2) {
@@ -2032,7 +2109,7 @@ function hideNarrativeConnectionCard() {
       constellationTimers.push(setTimeout(() => revealGroup(1), 1000));
       constellationTimers.push(setTimeout(() => fadeOutConstellation(), 4500));
       setTimeout(() => drawSubwayLines(), 400);
-      setTimeout(() => showNarrativeHint(), 7000);
+      setTimeout(() => showNarrativeHint(), 45000);
     }
 
     else if (n === 3) {
@@ -2045,7 +2122,7 @@ function hideNarrativeConnectionCard() {
         bearing: -20,
         duration: 8000
       });
-      setTimeout(() => showNarrativeHint(), 9000);
+      setTimeout(() => showNarrativeHint(), 8000);
     }
 
     else if (n === 4) {
@@ -2065,7 +2142,7 @@ function hideNarrativeConnectionCard() {
         const places = selectLgbtqPlaces(50);
         drawLgbtqDots(places, () => {});
       }, 2500);
-      setTimeout(() => showNarrativeHint(), 9000);
+      setTimeout(() => showNarrativeHint(), 8000);
     }
 
     else if (n === 5) {
@@ -2101,7 +2178,7 @@ function hideNarrativeConnectionCard() {
         bearing: 165,
         duration: 8000,
       });
-      setTimeout(() => showNarrativeHint(), 9000);
+      setTimeout(() => showNarrativeHint(), 8000);
     }
 
     else if (n === 6) {
@@ -2134,7 +2211,7 @@ function hideNarrativeConnectionCard() {
           attachKindredCardInteraction(TROPICANA_ID);
         }
       }, 1800);
-      setTimeout(() => showNarrativeHint(), 5000);
+      setTimeout(() => showNarrativeHint(), 4000);
     }
 
     else if (n === 7) {
@@ -2154,7 +2231,7 @@ function hideNarrativeConnectionCard() {
         toggle.classList.add('is-active');
         toggle.textContent = '◎ Web active';
       }
-      setTimeout(() => showNarrativeHint(), 5000);
+      setTimeout(() => showNarrativeHint(), 4000);
     }
 
     else if (n === 8) {
@@ -2178,12 +2255,36 @@ function hideNarrativeConnectionCard() {
         }
         showNarrativeConnectionCard(CONNECTION_DEMO_SOURCE_ID, CONNECTION_DEMO_TARGET_ID);
       }, 4000);
-      setTimeout(() => showNarrativeHint(), 7000);
+      setTimeout(() => showNarrativeHint(), 6000);
     }
     
 
     else if (n === 9) {
+      hideNarrativeConnectionCard();
+      clearNarrativeArcs();
+      hideNarrativeKindredCard();
+      hideNarrativePlaceCard();
+      clearAllNarrativeBeatTimers();
+      // Close any open connection/sidebar view from beat 8
+      if (typeof window.closeSidebar === 'function') {
+        try { window.closeSidebar(); } catch (e) {}
+      }
+      map.easeTo({
+        center: INITIAL_CENTER,
+        zoom: 11.5,
+        pitch: INITIAL_PITCH,
+        bearing: 0,
+        duration: 4000,
+      });
+      // Slide in the three Discover preview cards after the camera has
+      // begun moving, so the cards land alongside the central message.
+      setTimeout(() => showNarrativeDiscoverCards(), 600);
+      setTimeout(() => showNarrativeHint(), 4000);
+    }
+
+    else if (n === 10) {
       hideNarrativeHint();
+      hideNarrativeDiscoverCards();
       hideNarrativeConnectionCard();
       clearNarrativeArcs();
       clearTropicanaHighlight();
@@ -2199,7 +2300,7 @@ function hideNarrativeConnectionCard() {
         zoom: 11,
         pitch: INITIAL_PITCH,
         bearing: 0,
-        duration: 5000,
+        duration: 4000,
       });
       setTimeout(() => {
         const cta = document.getElementById('narrative-cta');
@@ -2207,7 +2308,7 @@ function hideNarrativeConnectionCard() {
           cta.style.opacity = '1';
           cta.style.pointerEvents = 'auto';
         }
-      }, 5500);
+      }, 4500);
     }
   }
 
@@ -2222,6 +2323,8 @@ function hideNarrativeConnectionCard() {
     hideNarrativeHint();
     hideNarrativePlaceCard();
     hideNarrativeKindredCard();
+    hideNarrativeConnectionCard();
+    hideNarrativeDiscoverCards();
     if (typeof window.toggleSecondTier === 'function' && window.showSecondTier) {
       try { window.toggleSecondTier(); } catch (e) {}
     }
@@ -2244,11 +2347,6 @@ function hideNarrativeConnectionCard() {
       duration: 5000,
     });
 
-    setTimeout(() => {
-      if (typeof window.openDiscoverPanel === 'function') {
-        window.openDiscoverPanel();
-      }
-    }, 1200);
 
     clearConstellationTimers();
     hideConstellationLayer();
@@ -2342,19 +2440,20 @@ function hideNarrativeHint() {
         e.target.closest('#narrative-right-card') ||
         e.target.closest('#narrative-kindred-card') ||
         e.target.closest('.narrative-kindred-item') ||
-        e.target.closest('#narrative-web-toggle')
+        e.target.closest('#narrative-web-toggle') ||
+        e.target.closest('#narrative-discover-cards')
       )) {
         return;
       }
       if (overlayEl.classList.contains('is-interactive')) return;
-      if (currentStep < 9) goToStep(currentStep + 1);
+      if (currentStep < 10) goToStep(currentStep + 1);
     });
 
     document.addEventListener('keydown', (e) => {
       if (!isNarrativeActive()) return;
       if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
         e.preventDefault();
-        if (currentStep < 9) goToStep(currentStep + 1);
+        if (currentStep < 10) goToStep(currentStep + 1);
       }
     });
   }

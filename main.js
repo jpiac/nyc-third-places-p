@@ -398,7 +398,7 @@ const STORIES = [
     id: 'jackson-heights',
     tag: 'Neighborhood',
     title: 'Jackson Heights',
-    desc: 'One of the most ethnically diverse neighborhoods on earth, where Nepali tea houses, Colombian bakeries, and Bangladeshi sweet shops share the same block. The third places here don\'t just serve a community — they are the community.',
+    desc: 'One of the most ethnically diverse neighborhoods on earth, where Nepali tea houses, Colombian bakeries, and Bangladeshi sweet shops share the same block. The third places here tell the story of communities becoming community.',
     center: [-73.885, 40.752],
     zoom: 15,
     pitch: 55,
@@ -431,7 +431,7 @@ const STORIES = [
     id: 'harlem',
     tag: 'Neighborhood',
     title: 'Harlem',
-    desc: 'A neighborhood that has always known what third places are for. Harlem\'s gathering spaces — churches, coffeehouses, delis — have held community through generations of change. They are where culture is made and where it is kept.',
+    desc: 'A neighborhood that has always known what third places are for. Harlem\'s gathering spaces like churches, coffeehouses, delis, and parks have held community through generations of change. They are where culture is made and where it is kept.',
     center: [-73.945, 40.810],
     zoom: 15,
     pitch: 55,
@@ -447,7 +447,7 @@ const STORIES = [
     id: 'astoria',
     tag: 'Neighborhood',
     title: 'Astoria',
-    desc: 'Greek coffee houses, Middle Eastern delis, and Irish pubs that have outlasted every wave of gentrification. Astoria\'s third places carry the weight of multiple diasporas without making it feel like a burden.',
+    desc: 'Greek coffee houses, Middle Eastern delis, and Irish pubs that have outlasted every wave of gentrification. Astoria\'s third places showcase the weight of multiple diasporas and intergenerational connections.',
     center: [-73.925, 40.775],
     zoom: 15,
     pitch: 55,
@@ -463,7 +463,7 @@ const STORIES = [
     id: 'williamsburg',
     tag: 'Neighborhood',
     title: 'Williamsburg',
-    desc: 'The neighborhood that became a symbol of transformation still has places that resist it. A whiskey distillery bar, a breakfast spot that remembers your order, and a coffee shop that bans laptops on weekends — a different kind of third place for a different kind of community.',
+    desc: 'The neighborhood that became a symbol of transformation still has places that resist it. A whiskey distillery bar, a breakfast spot that remembers your order, and a coffee shop that bans laptops on weekends each have a story to tell.',
     center: [-73.955, 40.720],
     zoom: 15,
     pitch: 55,
@@ -478,7 +478,7 @@ const STORIES = [
     id: 'brooklyn-queer',
     tag: 'Thematic',
     title: 'Brooklyn\'s Queer Corridor',
-    desc: 'From Park Slope\'s last lesbian bar to Bed-Stuy\'s Black and Caribbean queer nights, Brooklyn\'s LGBTQ+ third places form a corridor of belonging that runs from the waterfront to the outer neighborhoods. These spaces don\'t just welcome — they hold.',
+    desc: 'From Park Slope\'s last lesbian bar to Bed-Stuy\'s Black and Caribbean queer nights, Brooklyn\'s LGBTQ+ third places form a corridor of belonging that runs from the waterfront to the outer neighborhoods. These are places to be and belong.',
     center: [-73.960, 40.680],
     zoom: 12,
     pitch: 45,
@@ -497,7 +497,7 @@ const STORIES = [
     id: 'bronx-anchors',
     tag: 'Thematic',
     title: 'The Bronx\'s Community Anchors',
-    desc: 'The Bronx has always built its own infrastructure. Churches that double as community centers, social facilities that hold the fraying edges of a neighborhood together — these are the places that show up when no one else does.',
+    desc: 'The Bronx has always built its own infrastructure. Churches that double as community centers, social facilities that hold the fraying edges of a neighborhood together. The Bronx is made of places that show up when no one else does.',
     center: [-73.900, 40.845],
     zoom: 13,
     pitch: 45,
@@ -514,7 +514,7 @@ const STORIES = [
     id: 'chinatown',
     tag: 'Thematic',
     title: 'Chinatown\'s Social Infrastructure',
-    desc: 'Manhattan\'s Chinatown has resisted displacement through density — packing more social life per block than almost anywhere in the city. Bakeries, bars, bathhouses, and karaoke lounges operating as a complete social ecosystem within a few square blocks.',
+    desc: 'Manhattan\'s Chinatown has resisted displacement through density, packing more social life per block than almost anywhere in the city. Bakeries, bars, bathhouses, and karaoke lounges operating as a complete social ecosystem within a few square blocks.',
     center: [-73.999, 40.717],
     zoom: 15.5,
     pitch: 60,
@@ -944,7 +944,7 @@ function renderCommunityDetail(tagKey) {
     if (communityTypeFilter !== 'all') {
       filtered = filtered.filter(p => p.osm_type === communityTypeFilter);
     }
-    return filtered.sort((a, b) => (b.review_count || 0) - (a.review_count || 0)).slice(0, 80);
+    return filtered.sort((a, b) => compareForCommunityTag(tagKey, a, b)).slice(0, 80);
   }
 
   function rebuild() {
@@ -1792,6 +1792,25 @@ function getPlacesForTag(tagKey) {
   return result;
 }
 
+// Boost ranking for community filters where raw review-count sort
+// would surface places that match the tag only loosely (e.g. trendy
+// rooftop bars that are LGBTQ+ welcoming without being queer-rooted).
+// Returns a non-negative integer; higher means it should appear earlier.
+function getCommunityFilterBoost(place, tagKey) {
+  if (tagKey !== 'lgbtq_welcoming') return 0;
+  const c = place.community_tags || {};
+  let boost = 0;
+  if (c.lgbtq_primary === true || c.dfs_lgbtq_owned === true) boost += 2;
+  if (c.dfs_transgender_safe === true) boost += 1;
+  return boost;
+}
+
+function compareForCommunityTag(tagKey, a, b) {
+  const boostDiff = getCommunityFilterBoost(b, tagKey) - getCommunityFilterBoost(a, tagKey);
+  if (boostDiff !== 0) return boostDiff;
+  return (b.review_count || 0) - (a.review_count || 0);
+}
+
 function setFilterMatchedState(ids, value) {
   if (!map) return;
   for (const id of ids) {
@@ -2016,7 +2035,7 @@ function renderFilterSidebar() {
   if (filterBoroughFilter !== 'all') {
     filtered = filtered.filter((p) => p.borough === filterBoroughFilter);
   }
-  filtered.sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
+  filtered.sort((a, b) => compareForCommunityTag(activeFilterTag, a, b));
   const display = filtered.slice(0, 100);
 
   container.innerHTML =
@@ -3186,12 +3205,6 @@ async function initMap() {
   }
   const geojson = buildGeoJSON(raw);
   hideLoading();
-
-  let narrativeAlreadySeen = false;
-  try { narrativeAlreadySeen = localStorage.getItem('narrative_seen') === 'true'; } catch (e) {}
-  if (narrativeAlreadySeen) {
-    setTimeout(() => openDiscoverPanel(), 800);
-  }
 
   window.setSelected = setSelected;
   window.featuresById = featuresById;
