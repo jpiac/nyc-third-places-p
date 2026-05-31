@@ -2109,7 +2109,7 @@ function hideNarrativeConnectionCard() {
       constellationTimers.push(setTimeout(() => revealGroup(1), 1000));
       constellationTimers.push(setTimeout(() => fadeOutConstellation(), 4500));
       setTimeout(() => drawSubwayLines(), 400);
-      setTimeout(() => showNarrativeHint(), 45000);
+      setTimeout(() => showNarrativeHint(), 4500);
     }
 
     else if (n === 3) {
