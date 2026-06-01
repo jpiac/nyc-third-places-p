@@ -1514,9 +1514,12 @@ function drawKindredLines(placeId) {
   function frame(now) {
     const t = Math.min(1, (now - startTime) / DURATION);
     const eased = 1 - Math.pow(1 - t, 2);
+    // sampleArc yields ARC_POINTS + 1 points (so ARC_POINTS segments). The
+    // visible-point count must reach ARC_POINTS + 1 for the final segment that
+    // touches the target dot to render.
     const visibleCount = t >= 1
-      ? ARC_POINTS
-      : Math.max(2, Math.floor(eased * ARC_POINTS));
+      ? ARC_POINTS + 1
+      : Math.max(2, Math.floor(eased * (ARC_POINTS + 1)));
 
     const lineData = [];
     for (let a = 0; a < arcPaths.length; a++) {
@@ -1659,9 +1662,12 @@ function drawSecondTierLines(firstTierIds) {
     function frame(now) {
       const t = Math.min(1, (now - startTime) / DURATION);
       const eased = 1 - Math.pow(1 - t, 2);
+      // sampleArc yields ARC_POINTS + 1 points (so ARC_POINTS segments). The
+      // visible-point count must reach ARC_POINTS + 1 for the final segment that
+      // touches the target dot to render.
       const visibleCount = t >= 1
-        ? ARC_POINTS
-        : Math.max(2, Math.floor(eased * ARC_POINTS));
+        ? ARC_POINTS + 1
+        : Math.max(2, Math.floor(eased * (ARC_POINTS + 1)));
 
       const lineData = [];
       for (let a = 0; a < arcPaths.length; a++) {
