@@ -587,7 +587,7 @@ const DISCOVERIES = [
     tag: 'Cross-Community',
     sourceId: 'osm_7161278397',
     targetId: 'osm_2724057631',
-    desc: 'A Black-owned Brooklyn brunch spot and a Manhattan sports pub separated by 10 miles and everything else. The algorithm found them anyway: same covenant, different crowd.',
+    desc: 'A Black-owned Brooklyn brunch spot and a Manhattan sports pub separated by 10 miles and everything else. Same covenant, different crowd.',
     score: 0.624,
   },
   {

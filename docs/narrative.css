@@ -572,31 +572,10 @@ body.narrative-active .legend {
 }
 
 @media (max-width: 640px) {
-  /* On phones, drop the side-cards column to a strip just above the hint.
-     Hide the body copy so the three cards stay compact and the central
-     narrative text remains readable. */
+  /* On phones, hide the discover preview cards entirely — same pattern as
+     #narrative-kindred-card. There isn't room for three stacked cards
+     alongside the central narrative text and the hint. */
   #narrative-discover-cards {
-    top: auto;
-    bottom: 80px;
-    left: 16px;
-    right: 16px;
-    width: auto;
-    max-height: 50vh;
-    flex-direction: column;
-    gap: 8px;
-    transform: translateY(120%);
-  }
-  #narrative-discover-cards.is-visible {
-    transform: translateY(0);
-  }
-  .narrative-discover-card {
-    padding: 12px 14px;
-    gap: 4px;
-  }
-  .narrative-discover-card-title {
-    font-size: 16px;
-  }
-  .narrative-discover-card-body {
     display: none;
   }
 }
