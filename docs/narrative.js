@@ -1831,7 +1831,7 @@ function hideNarrativeConnectionCard() {
         '<div class="narrative-discover-card-label">Story</div>' +
         '<div class="narrative-discover-card-title">Jackson Heights</div>' +
         '<div class="narrative-discover-card-dots">' + storyDots + '</div>' +
-        '<div class="narrative-discover-card-body">One of the most ethnically diverse neighborhoods on earth, where Nepali tea houses, Colombian bakeries, and Bangladeshi sweet shops share the same block. The third places here don’t just serve a community — they are the community.</div>' +
+        '<div class="narrative-discover-card-body">One of the most ethnically diverse neighborhoods on earth, where Nepali tea houses, Colombian bakeries, and Bangladeshi sweet shops share the same block. The third places here tell the story of communities becoming community.</div>' +
       '</div>' +
       '<div class="narrative-discover-card">' +
         '<div class="narrative-discover-card-label">Community</div>' +
