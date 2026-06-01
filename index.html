@@ -105,14 +105,16 @@
     <button id="discover-btn" onclick="toggleDiscoverPanel()">✦ Discover</button>
     <button id="replay-narrative" onclick="replayNarrative()">Replay Intro</button>
     <button id="about-btn" onclick="toggleAbout()">About</button>
+    <button id="methodology-btn" onclick="toggleMethodology()">Methodology</button>
     <button id="feedback-btn" onclick="openFeedbackModal()">Feedback</button>
     <button id="hamburger-btn" class="hamburger-btn" aria-label="Menu" aria-expanded="false" aria-controls="hamburger-menu">
       <span></span><span></span><span></span>
     </button>
     <div id="hamburger-menu" class="hamburger-menu" aria-hidden="true">
-      <button onclick="replayNarrative(); closeHamburger()">Replay Intro</button>
       <button onclick="toggleDiscoverPanel(); closeHamburger()">✦ Discover</button>
+      <button onclick="replayNarrative(); closeHamburger()">Replay Intro</button>
       <button onclick="toggleAbout(); closeHamburger()">About</button>
+      <button onclick="toggleMethodology(); closeHamburger()">Methodology</button>
       <button onclick="openFeedbackModal(); closeHamburger()">Feedback</button>
     </div>
   </header>
@@ -247,6 +249,15 @@
       </div>
 
       <div class="about-section">
+        <h3>Using the Map</h3>
+        <p>Select any dot to open a place. You'll see its soul summary, atmosphere attributes, community identity tags, and up to 8 kindred places connected by shared social character. The size of each dot reflects how many reviews a place has received.</p>
+        <p>When a place is selected, colored arcs connect it to its kindred places. Hover over any arc to highlight it, and select it to explore the connection between the two places directly, including a breakdown of what drives their similarity. Toggle the "Web of connections" button to reveal the second-tier network: the kindred places of your kindred places.</p>
+        <p>Select the community identity tag on a place card to filter the entire map to spaces sharing that identity.</p> 
+        <p>Use the search bar to find any place by name, type, or description. Filter results by borough, place type, or community identity tag.</p>
+        <p>The <strong>Discover</strong> panel, opened via the button in the top navigation, offers curated entry points into the map: neighborhood stories, community spotlights, and data-driven connection discoveries. Each entry flies you directly to the relevant places.</p>
+      </div>
+
+      <div class="about-section">
         <h3>The Data</h3>
         <p>Each of the ~10,400 places on this map was sourced from <strong>OpenStreetMap</strong>, the community-built map of the world, then enriched with ratings, reviews, and atmosphere data from the <strong>Google Places API</strong>. Additional data were gathered from a variety of sources to provide a more comprehensive view of each place, including <strong>NYC Department of City Planning</strong>, <strong>NYC Department of Small Business Services</strong>, business websites and more. Some community identity attributes (LGBTQ+ ownership, women-owned, wheelchair accessibility, etc.) were sourced from Google Business Profiles via DataForSEO.</p>
         <p><strong>Soul summaries</strong>, short descriptions that capture each place's social character, were programatically generated via machine learning on the combined inputs of reviews, editorial summaries, place and community attributes, and website descriptions where available.</p>
@@ -280,6 +291,45 @@
           <a href="https://developers.google.com/maps/documentation/places/web-service" target="_blank" rel="noopener">Google Places API</a> &middot;
           <a href="https://www.mapbox.com" target="_blank" rel="noopener">Mapbox</a>
         </p>
+      </div>
+    </div>
+  </div>
+
+  <div id="methodology-panel" aria-hidden="true">
+    <div class="about-inner">
+      <button class="about-close" id="methodology-close" aria-label="Close">×</button>
+      <h2 class="about-title">Methodology</h2>
+      <p class="about-subtitle">How this map was built, from raw geographic data to a living picture of social character across New York City's five boroughs.</p>
+
+      <div class="about-section">
+        <h3>Data Collection</h3>
+        <p>The foundation is OpenStreetMap, from which we extracted all place nodes in New York City matching third place categories such as caf&eacute;s, bars, libraries, parks, community centers, places of worship, bookshops, laundromats, and dozens of other types. Each place was then enriched via the Google Places API to add ratings, review counts, user reviews, atmosphere attributes (outdoor seating, live music, dog-friendly, and more), and editorial summaries. Additional community identity attributes like LGBTQ+ ownership, women-owned status, transgender safe space designation, and others were sourced from Google Business Profiles via DataForSEO. Civic data from the NYC Department of City Planning and Department of Small Business Servicessupplemented coverage of senior centers, youth services, and public libraries.</p>
+      </div>
+
+      <div class="about-section">
+        <h3>Soul Summaries</h3>
+        <p>Each place's social character is distilled into a two to three sentence &ldquo;soul summary&rdquo;, a short description capturing who comes here, what draws them, and what the atmosphere feels like. These were generated using a Machine Learning model fed a curated set of up to 20 user reviews per place, sorted by rating and recency to prioritize representative experiences. Short or uninformative reviews (under 20 characters) were filtered out before processing. The model also received editorial summaries, website descriptions, atmosphere attributes, and community identity tags for each place. The prompt was designed to produce grounded, specific language that avoids generic praise in order to surface details that makes a place feel real rather than described. A quality filter then removed any summaries where the model flagged mismatched data, refused to generate, or produced generic output, resulting in approximately 12,200 usable soul summaries across the dataset.</p>
+      </div>
+
+      <div class="about-section">
+        <h3>Semantic Embeddings</h3>
+        <p>Raw text comparison (counting shared words between two descriptions) alone cannot capture meaning. &ldquo;Cozy atmoshpere&rdquo; and &ldquo;intimate experience&rdquo; share no words but describe a similar feeling. To enable genuine semantic comparison, each soul summary was converted into a 384-dimension vector using all-MiniLM-L6-v2, an open-source sentence transformer model running entirely locally via the @xenova/transformers library. This model was trained specifically on semantic similarity tasks: it maps sentences with similar meanings close together in a high-dimensional space, regardless of the specific words used. The result is a numerical fingerprint for each place's social character, one that understands that a &ldquo;worn-in neighborhood bar where the bartender remembers your order&rdquo; and a &ldquo;decades-old local institution where regulars sit in the same seat every Friday&rdquo; are describing similar kinds of places.</p>
+      </div>
+
+      <div class="about-section">
+        <h3>Computing Connections</h3>
+        <p>Every eligible place is compared against every other using a weighted similarity score across five signals. Semantic text similarity between soul summary embeddings, computed as cosine distance between vectors, carries 40% of the total weight. Atmosphere attribute matching such as comparing boolean fields like outdoor seating, live music, and family-friendly, carries 20%, scored as the fraction of comparable attributes that match. Community identity overlap (shared LGBTQ+, religious, cultural, or ownership tags) carries another 20%. OSM place type similarity, using a hand-coded graph of related types (bar relates to pub and nightclub; library relates to caf&eacute; and bookshop), carries 10%. Google place type overlap, computed as Jaccard similarity between each place's category tags, carries the final 10%.</p>
+        <p>A minimum score threshold of 0.38 is applied, resulting in any connection scoring below this being dropped entirely rather than padding to fill a quota. This means some places have fewer than eight connections if strong matches genuinely don't exist in the dataset. The threshold was calibrated against the score distribution: the median connection scores 0.54, and the 10th percentile sits at 0.42, so the 0.38 floor captures genuine connections while excluding noise. A diversity cap then ensures no more than five of eight connections share the same place type, encouraging cross-category discovery. Places with fewer than two connections after this filtering are removed from the dataset entirely.</p>
+      </div>
+
+      <div class="about-section">
+        <h3>Quality Filtering</h3>
+        <p>Several filtering passes were applied throughout the pipeline. Chain establishments like Starbucks, Equinox, Planet Fitness, Dunkin', and others were excluded on the grounds that they lack the community-specific character that defines third places. Places whose soul summaries were flagged as model refusals, error messages, or clearly mismatched to the wrong establishment were removed. A pattern-matching filter caught common refusal phrases (&ldquo;I can't write this description,&rdquo; &ldquo;the reviews provided are for a different place&rdquo;) that slipped through during generation. The result is approximately 10,400 places, each with at least two connections meeting the quality threshold.</p>
+      </div>
+
+      <div class="about-section">
+        <h3>Visualization</h3>
+        <p>The map is rendered using Mapbox GL JS with a custom Mapbox Standard style. Arc connections are drawn using deck.gl's LineLayer on a transparent canvas overlaid on the map, with each arc animated from source to destination and colored by place type. Hit-testing for arc hover and click interactions is handled by deck.gl's pickObject method, called on Mapbox canvas events, allowing full map interaction to pass through uninterrupted. The underlying data is served as a gzip-compressed JSON file (~30MB compressed from ~150MB uncompressed), decompressed in the browser using the native DecompressionStream API. The Mapbox vector tileset enables smooth dot rendering at city scale without transferring full place geometry to the client. All connection scoring, similarity computation, and data processing runs as an offline Node.js pipeline so the browser receives only the final enriched dataset.</p>
       </div>
     </div>
   </div>

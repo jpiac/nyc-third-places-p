@@ -3686,24 +3686,48 @@ function initArcInteraction() {
   }, true); // useCapture:true so we get it before Mapbox
 }
 
+function closeSlidePanel(id) {
+  const panel = document.getElementById(id);
+  if (!panel) return;
+  panel.classList.remove('is-open');
+  panel.setAttribute('aria-hidden', 'true');
+}
+
 function toggleAbout() {
   const panel = document.getElementById('about-panel');
   if (!panel) return;
   const isOpen = panel.classList.contains('is-open');
+  closeSlidePanel('methodology-panel');
   panel.classList.toggle('is-open');
   panel.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
 }
 window.toggleAbout = toggleAbout;
 
+function toggleMethodology() {
+  const panel = document.getElementById('methodology-panel');
+  if (!panel) return;
+  const isOpen = panel.classList.contains('is-open');
+  closeSlidePanel('about-panel');
+  panel.classList.toggle('is-open');
+  panel.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
+}
+window.toggleMethodology = toggleMethodology;
+
 document.addEventListener('click', (e) => {
-  const panel = document.getElementById('about-panel');
-  const btn = document.getElementById('about-btn');
   const hamburgerMenu = document.getElementById('hamburger-menu');
-  if (panel && panel.classList.contains('is-open')) {
-    if (!panel.contains(e.target) && e.target !== btn &&
-        !(hamburgerMenu && hamburgerMenu.contains(e.target))) {
-      panel.classList.remove('is-open');
-      panel.setAttribute('aria-hidden', 'true');
+  const panels = [
+    { panel: 'about-panel', btn: 'about-btn' },
+    { panel: 'methodology-panel', btn: 'methodology-btn' },
+  ];
+  for (const { panel: panelId, btn: btnId } of panels) {
+    const panel = document.getElementById(panelId);
+    const btn = document.getElementById(btnId);
+    if (panel && panel.classList.contains('is-open')) {
+      if (!panel.contains(e.target) && e.target !== btn &&
+          !(hamburgerMenu && hamburgerMenu.contains(e.target))) {
+        panel.classList.remove('is-open');
+        panel.setAttribute('aria-hidden', 'true');
+      }
     }
   }
 });
@@ -3715,6 +3739,8 @@ function initUI() {
   });
   const aboutClose = document.getElementById('about-close');
   if (aboutClose) aboutClose.addEventListener('click', toggleAbout);
+  const methodologyClose = document.getElementById('methodology-close');
+  if (methodologyClose) methodologyClose.addEventListener('click', toggleMethodology);
 }
 
 function toggleHamburger() {

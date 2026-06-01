@@ -543,7 +543,8 @@ body.theme-night #discover-btn {
 }
 
 /* About panel */
-#about-btn {
+#about-btn,
+#methodology-btn {
   margin-left: 8px;
   background: transparent;
   border: 1px solid rgba(43, 43, 43, 0.3);
@@ -555,12 +556,14 @@ body.theme-night #discover-btn {
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s;
 }
-#about-btn:hover {
+#about-btn:hover,
+#methodology-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
 
-#about-panel {
+#about-panel,
+#methodology-panel {
   position: fixed;
   top: 0;
   right: 0;
@@ -574,7 +577,8 @@ body.theme-night #discover-btn {
   overflow-y: auto;
   z-index: 12;
 }
-#about-panel.is-open {
+#about-panel.is-open,
+#methodology-panel.is-open {
   transform: translateX(0);
 }
 .about-inner {
@@ -1130,6 +1134,7 @@ body.theme-night #discover-btn {
   #replay-narrative,
   #discover-btn,
   #about-btn,
+  #methodology-btn,
   #feedback-btn {
     display: none;
   }
@@ -1541,7 +1546,8 @@ body.theme-night .legend {
   background: rgba(2, 11, 24, 0.92);
 }
 
-body.theme-night #about-panel {
+body.theme-night #about-panel,
+body.theme-night #methodology-panel {
   background: #030e1e;
 }
 body.theme-night .about-section p,
@@ -1643,12 +1649,14 @@ body.theme-night .pill {
 
 body.theme-night #replay-narrative,
 body.theme-night #about-btn,
+body.theme-night #methodology-btn,
 body.theme-night #feedback-btn {
   border-color: rgba(0, 204, 255, 0.3);
   color: #3a8abf;
 }
 body.theme-night #replay-narrative:hover,
 body.theme-night #about-btn:hover,
+body.theme-night #methodology-btn:hover,
 body.theme-night #feedback-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
