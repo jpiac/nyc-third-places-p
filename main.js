@@ -379,40 +379,25 @@ function buildColorExpression(propName = 'osm_type') {
 async function loadData() {
   // Prefer native streaming decompression — never buffers the full file in memory
   if (typeof DecompressionStream !== 'undefined') {
-    console.log('[loadData] trying DecompressionStream path');
     try {
       const gzRes = await fetch(DATA_URL + '.gz');
-      console.log('[loadData] gz fetch status:', gzRes.status);
       if (gzRes.ok && gzRes.body) {
         const decompressed = gzRes.body.pipeThrough(new DecompressionStream('gzip'));
-        console.log('[loadData] decompressing via DecompressionStream...');
-        const result = await new Response(decompressed).json();
-        console.log('[loadData] DecompressionStream path succeeded, places:', result.length);
-        return result;
+        return await new Response(decompressed).json();
       }
-    } catch (e) {
-      console.warn('[loadData] DecompressionStream path failed:', e.message, '— falling through to fflate');
-    }
-  } else {
-    console.log('[loadData] DecompressionStream unavailable, using fflate');
+    } catch (e) { /* fall through to fflate */ }
   }
 
   // Fallback for browsers without DecompressionStream (e.g. iOS Safari < 16.4)
   const gzRes = await fetch(DATA_URL + '.gz');
   if (!gzRes.ok) throw new Error('HTTP ' + gzRes.status);
-  console.log('[loadData] fflate: fetched gz, buffering...');
   const compressed = new Uint8Array(await gzRes.arrayBuffer());
-  console.log('[loadData] fflate: decompressing', compressed.byteLength, 'bytes...');
   return new Promise((resolve, reject) => {
     fflate.gunzip(compressed, (err, data) => {
-      if (err) { console.error('[loadData] fflate error:', err); return reject(err); }
+      if (err) return reject(err);
       try {
-        console.log('[loadData] fflate: parsing JSON...');
-        const result = JSON.parse(new TextDecoder().decode(data));
-        console.log('[loadData] fflate path succeeded, places:', result.length);
-        resolve(result);
+        resolve(JSON.parse(new TextDecoder().decode(data)));
       } catch (e) {
-        console.error('[loadData] JSON parse error:', e.message);
         reject(e);
       }
     });
@@ -3233,7 +3218,6 @@ async function initMap() {
   try {
     raw = await loadData();
   } catch (e) {
-    console.error('[initMap] loadData failed:', e);
     hideLoading();
     showError('Failed to load data: ' + e.message);
     return;
