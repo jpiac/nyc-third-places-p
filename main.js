@@ -377,18 +377,21 @@ function buildColorExpression(propName = 'osm_type') {
 }
 
 async function loadData() {
-  const gzRes = await fetch(DATA_URL + '.gz');
-  if (!gzRes.ok) throw new Error('HTTP ' + gzRes.status);
-  const compressed = new Uint8Array(await gzRes.arrayBuffer());
-
-  // Prefer native streaming decompression; fall back to fflate on older browsers
+  // Prefer native streaming decompression — never buffers the full file in memory
   if (typeof DecompressionStream !== 'undefined') {
     try {
-      const stream = new Response(compressed).body.pipeThrough(new DecompressionStream('gzip'));
-      return await new Response(stream).json();
+      const gzRes = await fetch(DATA_URL + '.gz');
+      if (gzRes.ok && gzRes.body) {
+        const decompressed = gzRes.body.pipeThrough(new DecompressionStream('gzip'));
+        return await new Response(decompressed).json();
+      }
     } catch (e) { /* fall through to fflate */ }
   }
 
+  // Fallback for browsers without DecompressionStream (e.g. iOS Safari < 16.4)
+  const gzRes = await fetch(DATA_URL + '.gz');
+  if (!gzRes.ok) throw new Error('HTTP ' + gzRes.status);
+  const compressed = new Uint8Array(await gzRes.arrayBuffer());
   return new Promise((resolve, reject) => {
     fflate.gunzip(compressed, (err, data) => {
       if (err) return reject(err);
