@@ -2676,6 +2676,13 @@ function openConnectionView(sourceId, targetId) {
   content.innerHTML = renderConnectionPane(resolvedSource, resolvedTarget);
   content.scrollTop = 0;
 
+  // On mobile the sidebar defaults to 40vh — expand it so the full
+  // connection pane (including bar charts) is visible without scrolling.
+  if (window.innerWidth <= 640) {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.add('is-expanded');
+  }
+
   // Wire back button — from a discovery card, return to Discover home;
   // otherwise return to the place pane that the user came from.
   const backBtn = document.getElementById('connection-back-btn');
