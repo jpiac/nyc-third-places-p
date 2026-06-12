@@ -377,18 +377,28 @@ function buildColorExpression(propName = 'osm_type') {
 }
 
 async function loadData() {
+  const gzRes = await fetch(DATA_URL + '.gz');
+  if (!gzRes.ok) throw new Error('HTTP ' + gzRes.status);
+  const compressed = new Uint8Array(await gzRes.arrayBuffer());
+
+  // Prefer native streaming decompression; fall back to fflate on older browsers
   if (typeof DecompressionStream !== 'undefined') {
     try {
-      const gzRes = await fetch(DATA_URL + '.gz');
-      if (gzRes.ok && gzRes.body) {
-        const decompressed = gzRes.body.pipeThrough(new DecompressionStream('gzip'));
-        return await new Response(decompressed).json();
-      }
-    } catch (e) { /* fall through to plain fetch */ }
+      const stream = new Response(compressed).body.pipeThrough(new DecompressionStream('gzip'));
+      return await new Response(stream).json();
+    } catch (e) { /* fall through to fflate */ }
   }
-  const res = await fetch(DATA_URL);
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
+
+  return new Promise((resolve, reject) => {
+    fflate.gunzip(compressed, (err, data) => {
+      if (err) return reject(err);
+      try {
+        resolve(JSON.parse(new TextDecoder().decode(data)));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  });
 }
 
 // ── Discover Panel Data ──────────────────────────────────────
