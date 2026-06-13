@@ -99,7 +99,7 @@ body.narrative-active #narrative-overlay,
 }
 
 .narrative-sub {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Impact', Georgia, serif;
   font-size: 18px;
   line-height: 1.55;
   color: rgba(255, 255, 255, 0.85);
@@ -108,8 +108,7 @@ body.narrative-active #narrative-overlay,
 }
 
 .narrative-text blockquote {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-style: italic;
+  font-family: 'Impact', Georgia, serif;
   font-size: 28px;
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.92);
