@@ -3761,6 +3761,21 @@ function initUI() {
   if (aboutClose) aboutClose.addEventListener('click', toggleAbout);
   const methodologyClose = document.getElementById('methodology-close');
   if (methodologyClose) methodologyClose.addEventListener('click', toggleMethodology);
+
+  // Prevent iOS Safari from zooming in when the search input is focused.
+  // Toggling maximum-scale only during focus avoids permanently disabling
+  // pinch-to-zoom for the rest of the page.
+  const searchInput = document.getElementById('search-input');
+  const viewport = document.querySelector('meta[name="viewport"]');
+  if (searchInput && viewport) {
+    const base = viewport.content;
+    searchInput.addEventListener('focus', () => {
+      viewport.content = base + ', maximum-scale=1';
+    });
+    searchInput.addEventListener('blur', () => {
+      viewport.content = base;
+    });
+  }
 }
 
 function toggleHamburger() {
