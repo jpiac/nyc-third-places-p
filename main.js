@@ -1252,7 +1252,7 @@ function renderKindred(similarityIds) {
       '<button id="second-tier-toggle" type="button" class="second-tier-toggle' + toggleActive + '" ' +
         'aria-pressed="' + (showSecondTier ? 'true' : 'false') + '">' +
         '<span class="second-tier-icon" aria-hidden="true">◎</span>' +
-        '<span class="second-tier-label">Web of connections</span>' +
+        '<span class="second-tier-label">' + (showSecondTier ? 'Hide' : 'Show') + ' web of connections</span>' +
       '</button>' +
     '</div>' +
     '<div class="kindred">' + cards.join('') + '</div>'
@@ -1752,7 +1752,11 @@ function toggleSecondTier() {
   showSecondTier = !showSecondTier;
   window.showSecondTier = showSecondTier;
   const btn = document.getElementById('second-tier-toggle');
-  if (btn) btn.classList.toggle('is-active', showSecondTier);
+  if (btn) {
+    btn.classList.toggle('is-active', showSecondTier);
+    const label = btn.querySelector('.second-tier-label');
+    if (label) label.textContent = (showSecondTier ? 'Hide' : 'Show') + ' web of connections';
+  }
 
   if (!showSecondTier) {
     if (activeFilterTag) {
