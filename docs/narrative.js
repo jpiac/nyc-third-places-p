@@ -203,7 +203,6 @@
         }
       }
     });
-    try { if (window.posthog) window.posthog.capture('narrative_step_viewed', { step: n }); } catch (e) {}
   }
 
   function injectPlaceCard() {
@@ -2315,7 +2314,6 @@ function hideNarrativeConnectionCard() {
 
   function exitNarrative() {
     safeSet(LS_KEY, 'true');
-    try { if (window.posthog) window.posthog.capture('narrative_completed', { reached_step: currentStep }); } catch (e) {}
     teardownConstellationInteraction(map);
     clearAllNarrativeBeatTimers();
     clearCameraPath();

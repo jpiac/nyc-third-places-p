@@ -3,23 +3,6 @@ const MAPBOX_TOKEN = 'pk.eyJ1IjoianBpYWMiLCJhIjoiY21wZzNpazdvMGRlbzJxcHF1aXJ3cGN
 const DATA_URL = './data/nyc_final.json';
 const TOP_KINDRED = 8;
 
-// PostHog analytics — safe wrapper, no-ops if blocked by ad blocker
-function track(event, props) {
-  try { if (window.posthog) window.posthog.capture(event, props || {}); } catch (e) {}
-}
-
-// Session engagement tracking — fires milestones and records total time on unload
-(function () {
-  const SESSION_START = Date.now();
-  const MILESTONES = [30, 120, 300, 600]; // seconds
-  MILESTONES.forEach((s) => {
-    setTimeout(() => track('session_milestone', { seconds: s }), s * 1000);
-  });
-  window.addEventListener('beforeunload', () => {
-    track('session_ended', { time_on_site_seconds: Math.round((Date.now() - SESSION_START) / 1000) });
-  });
-})();
-
 const FORMSPREE_URL = 'https://formspree.io/f/xlgvpgza';
 let feedbackPlaceId = null;
 let feedbackPlaceName = null;
@@ -709,7 +692,6 @@ function toggleDiscoverPanel() {
 window.toggleDiscoverPanel = toggleDiscoverPanel;
 
 function openDiscoverPanel() {
-  track('discover_panel_opened');
   if (activeFilterTag) exitFilterMode(false);
   clearMapSelectionForDiscover();
   activeStoryId = null;
@@ -835,8 +817,6 @@ function renderDiscoverHome() {
   content.querySelectorAll('.story-card').forEach(btn => {
     btn.addEventListener('click', () => {
       activeStoryId = btn.getAttribute('data-story-id');
-      const story = STORIES.find(s => s.id === activeStoryId);
-      track('discover_story_selected', { story_id: activeStoryId, story_title: story && story.title });
       renderStoryDetail(activeStoryId);
     });
   });
@@ -844,8 +824,6 @@ function renderDiscoverHome() {
   content.querySelectorAll('.community-card').forEach(btn => {
     btn.addEventListener('click', () => {
       activeCommunityTag = btn.getAttribute('data-community-tag');
-      const community = COMMUNITIES.find(c => c.tag === activeCommunityTag);
-      track('discover_community_selected', { community_tag: activeCommunityTag, community_label: community && community.label });
       communityBoroughFilter = 'all';
       communityTypeFilter = 'all';
       renderCommunityDetail(activeCommunityTag);
@@ -857,7 +835,6 @@ function renderDiscoverHome() {
       const i = parseInt(btn.getAttribute('data-discovery-index'));
       const d = DISCOVERIES[i];
       if (!d) return;
-      track('discover_highlight_selected', { highlight_tag: d.tag, is_connection: !d.isSingle });
       if (d.isSingle) {
         const place = featuresById.get(d.sourceId);
         if (place && Array.isArray(place.coordinates)) {
@@ -932,18 +909,11 @@ function renderStoryDetail(storyId) {
   });
 
   const storyKey = 'story:' + storyId;
-  const story = STORIES.find(s => s.id === storyId);
   content.querySelectorAll('.story-place-item').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-place-id');
       const place = featuresById.get(id);
       if (place && Array.isArray(place.coordinates)) {
-        track('discover_story_place_selected', {
-          story_id: storyId,
-          story_title: story && story.title,
-          place_name: place.name,
-          place_type: place.osm_type,
-        });
         sidebarFromDiscover = storyKey;
         discoverPanelOpen = false;
         map.flyTo({ center: place.coordinates, zoom: 16, pitch: 65, duration: 1500 });
@@ -1055,19 +1025,11 @@ function renderCommunityDetail(tagKey) {
     }
 
     const communityKey = 'community:' + tagKey;
-    const community = COMMUNITIES.find(c => c.tag === tagKey);
     content.querySelectorAll('.community-place-item').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-place-id');
         const place = featuresById.get(id);
         if (place && Array.isArray(place.coordinates)) {
-          track('discover_community_place_selected', {
-            community_tag: tagKey,
-            community_label: community && community.label,
-            place_name: place.name,
-            place_type: place.osm_type,
-            borough: place.borough,
-          });
           sidebarFromDiscover = communityKey;
           discoverPanelOpen = false;
           map.flyTo({ center: place.coordinates, zoom: 16, pitch: 65, duration: 1500 });
@@ -1789,10 +1751,6 @@ function clearKindredLines() {
 function toggleSecondTier() {
   showSecondTier = !showSecondTier;
   window.showSecondTier = showSecondTier;
-  if (showSecondTier) {
-    const p = selectedPlaceId && featuresById.get(selectedPlaceId);
-    track('web_of_connections_toggled', { place_name: p && p.name, place_type: p && p.osm_type });
-  }
   const btn = document.getElementById('second-tier-toggle');
   if (btn) {
     btn.classList.toggle('is-active', showSecondTier);
@@ -2679,15 +2637,6 @@ function openConnectionView(sourceId, targetId) {
   connectionSourceId = resolvedSource;
   connectionTargetId = resolvedTarget;
 
-  const _src = featuresById.get(resolvedSource);
-  const _tgt = featuresById.get(resolvedTarget);
-  track('connection_viewed', {
-    source_name: _src && _src.name,
-    source_type: _src && _src.osm_type,
-    target_name: _tgt && _tgt.name,
-    target_type: _tgt && _tgt.osm_type,
-  });
-
  // Clear all arcs, draw just the single connection arc
   if (arcAnimFrame !== null) {
     cancelAnimationFrame(arcAnimFrame);
@@ -2771,13 +2720,6 @@ window.closeConnectionView = closeConnectionView;
 function openSidebar(placeId) {
   const place = featuresById.get(placeId);
   if (!place) return;
-  track('place_opened', {
-    place_id: placeId,
-    place_name: place.name,
-    place_type: place.osm_type,
-    borough: place.borough,
-    tier: place.tier,
-  });
 
   if (unfadeMainAnimFrame !== null) {
     cancelAnimationFrame(unfadeMainAnimFrame);
@@ -3102,12 +3044,6 @@ function runSearch() {
       const placeId = btn.dataset.id;
       if (!placeId) return;
       const place = featuresById.get(placeId);
-      track('search_result_selected', {
-        query: searchQuery,
-        place_name: place && place.name,
-        place_type: place && place.osm_type,
-        borough: place && place.borough,
-      });
       if (place && Array.isArray(place.coordinates)) {
         map.flyTo({
           center: place.coordinates,
