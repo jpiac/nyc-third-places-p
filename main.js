@@ -3,6 +3,11 @@ const MAPBOX_TOKEN = 'pk.eyJ1IjoianBpYWMiLCJhIjoiY21wZzNpazdvMGRlbzJxcHF1aXJ3cGN
 const DATA_URL = './data/nyc_final.json';
 const TOP_KINDRED = 8;
 
+// PostHog analytics — safe wrapper, no-ops if blocked by ad blocker
+function track(event, props) {
+  try { if (window.posthog) window.posthog.capture(event, props || {}); } catch (e) {}
+}
+
 const FORMSPREE_URL = 'https://formspree.io/f/xlgvpgza';
 let feedbackPlaceId = null;
 let feedbackPlaceName = null;
@@ -692,6 +697,7 @@ function toggleDiscoverPanel() {
 window.toggleDiscoverPanel = toggleDiscoverPanel;
 
 function openDiscoverPanel() {
+  track('discover_panel_opened');
   if (activeFilterTag) exitFilterMode(false);
   clearMapSelectionForDiscover();
   activeStoryId = null;
@@ -1751,6 +1757,10 @@ function clearKindredLines() {
 function toggleSecondTier() {
   showSecondTier = !showSecondTier;
   window.showSecondTier = showSecondTier;
+  if (showSecondTier) {
+    const p = selectedPlaceId && featuresById.get(selectedPlaceId);
+    track('web_of_connections_toggled', { place_name: p && p.name, place_type: p && p.osm_type });
+  }
   const btn = document.getElementById('second-tier-toggle');
   if (btn) {
     btn.classList.toggle('is-active', showSecondTier);
@@ -2637,6 +2647,15 @@ function openConnectionView(sourceId, targetId) {
   connectionSourceId = resolvedSource;
   connectionTargetId = resolvedTarget;
 
+  const _src = featuresById.get(resolvedSource);
+  const _tgt = featuresById.get(resolvedTarget);
+  track('connection_viewed', {
+    source_name: _src && _src.name,
+    source_type: _src && _src.osm_type,
+    target_name: _tgt && _tgt.name,
+    target_type: _tgt && _tgt.osm_type,
+  });
+
  // Clear all arcs, draw just the single connection arc
   if (arcAnimFrame !== null) {
     cancelAnimationFrame(arcAnimFrame);
@@ -2720,6 +2739,13 @@ window.closeConnectionView = closeConnectionView;
 function openSidebar(placeId) {
   const place = featuresById.get(placeId);
   if (!place) return;
+  track('place_opened', {
+    place_id: placeId,
+    place_name: place.name,
+    place_type: place.osm_type,
+    borough: place.borough,
+    tier: place.tier,
+  });
 
   if (unfadeMainAnimFrame !== null) {
     cancelAnimationFrame(unfadeMainAnimFrame);
@@ -3044,6 +3070,12 @@ function runSearch() {
       const placeId = btn.dataset.id;
       if (!placeId) return;
       const place = featuresById.get(placeId);
+      track('search_result_selected', {
+        query: searchQuery,
+        place_name: place && place.name,
+        place_type: place && place.osm_type,
+        borough: place && place.borough,
+      });
       if (place && Array.isArray(place.coordinates)) {
         map.flyTo({
           center: place.coordinates,
