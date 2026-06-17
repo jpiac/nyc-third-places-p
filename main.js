@@ -8,6 +8,18 @@ function track(event, props) {
   try { if (window.posthog) window.posthog.capture(event, props || {}); } catch (e) {}
 }
 
+// Session engagement tracking — fires milestones and records total time on unload
+(function () {
+  const SESSION_START = Date.now();
+  const MILESTONES = [30, 120, 300, 600]; // seconds
+  MILESTONES.forEach((s) => {
+    setTimeout(() => track('session_milestone', { seconds: s }), s * 1000);
+  });
+  window.addEventListener('beforeunload', () => {
+    track('session_ended', { time_on_site_seconds: Math.round((Date.now() - SESSION_START) / 1000) });
+  });
+})();
+
 const FORMSPREE_URL = 'https://formspree.io/f/xlgvpgza';
 let feedbackPlaceId = null;
 let feedbackPlaceName = null;
@@ -823,6 +835,8 @@ function renderDiscoverHome() {
   content.querySelectorAll('.story-card').forEach(btn => {
     btn.addEventListener('click', () => {
       activeStoryId = btn.getAttribute('data-story-id');
+      const story = STORIES.find(s => s.id === activeStoryId);
+      track('discover_story_selected', { story_id: activeStoryId, story_title: story && story.title });
       renderStoryDetail(activeStoryId);
     });
   });
@@ -830,6 +844,8 @@ function renderDiscoverHome() {
   content.querySelectorAll('.community-card').forEach(btn => {
     btn.addEventListener('click', () => {
       activeCommunityTag = btn.getAttribute('data-community-tag');
+      const community = COMMUNITIES.find(c => c.tag === activeCommunityTag);
+      track('discover_community_selected', { community_tag: activeCommunityTag, community_label: community && community.label });
       communityBoroughFilter = 'all';
       communityTypeFilter = 'all';
       renderCommunityDetail(activeCommunityTag);
@@ -841,6 +857,7 @@ function renderDiscoverHome() {
       const i = parseInt(btn.getAttribute('data-discovery-index'));
       const d = DISCOVERIES[i];
       if (!d) return;
+      track('discover_highlight_selected', { highlight_tag: d.tag, is_connection: !d.isSingle });
       if (d.isSingle) {
         const place = featuresById.get(d.sourceId);
         if (place && Array.isArray(place.coordinates)) {
@@ -915,11 +932,18 @@ function renderStoryDetail(storyId) {
   });
 
   const storyKey = 'story:' + storyId;
+  const story = STORIES.find(s => s.id === storyId);
   content.querySelectorAll('.story-place-item').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-place-id');
       const place = featuresById.get(id);
       if (place && Array.isArray(place.coordinates)) {
+        track('discover_story_place_selected', {
+          story_id: storyId,
+          story_title: story && story.title,
+          place_name: place.name,
+          place_type: place.osm_type,
+        });
         sidebarFromDiscover = storyKey;
         discoverPanelOpen = false;
         map.flyTo({ center: place.coordinates, zoom: 16, pitch: 65, duration: 1500 });
@@ -1031,11 +1055,19 @@ function renderCommunityDetail(tagKey) {
     }
 
     const communityKey = 'community:' + tagKey;
+    const community = COMMUNITIES.find(c => c.tag === tagKey);
     content.querySelectorAll('.community-place-item').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-place-id');
         const place = featuresById.get(id);
         if (place && Array.isArray(place.coordinates)) {
+          track('discover_community_place_selected', {
+            community_tag: tagKey,
+            community_label: community && community.label,
+            place_name: place.name,
+            place_type: place.osm_type,
+            borough: place.borough,
+          });
           sidebarFromDiscover = communityKey;
           discoverPanelOpen = false;
           map.flyTo({ center: place.coordinates, zoom: 16, pitch: 65, duration: 1500 });
