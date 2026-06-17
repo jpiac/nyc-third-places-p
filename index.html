@@ -372,6 +372,9 @@
         person_profiles: 'identified_only',
         autocapture: false,
       });
+      posthog.register({
+        device_type: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+      });
     }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
